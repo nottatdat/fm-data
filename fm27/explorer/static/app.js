@@ -288,14 +288,6 @@ function attrRow(k, p) {
 function attrColumn(title, keys, p) {
   return `<div class="attr-col"><h4>${esc(title)}</h4>${keys.map((k) => attrRow(k, p)).join("")}</div>`;
 }
-function proContra(p, best) {
-  const isGK = positionsOf(p).includes("GK");
-  const keys = isGK ? ALL_ATTRS : ALL_ATTRS.filter((k) => !GK_KEYS.has(k));
-  const rows = keys.map((k) => [k, Number(p[k])]).filter(([, v]) => Number.isFinite(v) && v > 0);
-  rows.sort((a, b) => best ? b[1] - a[1] : a[1] - b[1]);
-  return rows.slice(0, 5).map(([k, v]) =>
-    `<div class="pc-row"><span>${esc(label(k))}</span><b>${v}</b><i><em class="${best ? "good" : "bad"}" style="width:${v * 5}%"></em></i></div>`).join("");
-}
 function radarSvg(p) {
   const cx = 160, cy = 160, R = 104, n = RADAR_AXES.length;
   const pt = (i, r) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
@@ -331,23 +323,6 @@ function pitchSvg(active) {
     ${dots}
   </svg>`;
 }
-function latestSeasonBlock(h) {
-  const recs = (h && h.records) || [];
-  if (!recs.length) return "";
-  const max = Math.max(...recs.map((r) => r.season_end));
-  const rows = recs.filter((r) => r.season_end === max);
-  const season = rows[0].season;
-  const groups = new Map();
-  for (const r of rows) {
-    const key = `${r.competition || "—"}|${r.competition_id || ""}`;
-    if (!groups.has(key)) groups.set(key, { competition: r.competition, competition_id: r.competition_id, apps: 0, goals: 0 });
-    const g = groups.get(key); g.apps += r.apps || 0; g.goals += r.goals || 0;
-  }
-  const tr = [...groups.values()].map((g) => `<tr><td>${g.competition_id ? `<img class="comp-logo" src="/api/comp-logo/${g.competition_id}" alt="" loading="lazy" onerror="this.remove()">` : ""}${esc(g.competition || "—")}</td><td class="num">${g.apps}</td><td class="num">${g.goals}</td></tr>`).join("");
-  const total = [...groups.values()].reduce((a, g) => ({ apps: a.apps + g.apps, goals: a.goals + g.goals }), { apps: 0, goals: 0 });
-  return `<div class="pblock pseason"><h3>Season ${esc(season)}</h3><div class="table-wrap"><table class="history"><thead><tr><th>Competition</th><th class="num">Apps</th><th class="num">Goals</th></tr></thead><tbody>${tr}<tr class="total"><td>Total</td><td class="num">${total.apps}</td><td class="num">${total.goals}</td></tr></tbody></table></div></div>`;
-}
-
 function renderProfile(p, h) {
   const pos = positionsOf(p);
   const colors = clubColors(p.club_display || p.club);
@@ -374,10 +349,7 @@ function renderProfile(p, h) {
           ${fact("Market value", fmtMoney(p.value))}${fact("Asking price", fmtMoney(p.askingPrice))}
           ${fact("World reputation", fmtInt(p.worldRep))}${fact("Club reputation", fmtInt(p.clubRep))}
         </div>
-        <div class="ppc">
-          <div class="pc pro"><h4>PRO</h4>${proContra(p, true)}</div>
-          <div class="pc con"><h4>KONTRA</h4>${proContra(p, false)}</div>
-        </div>
+        <div class="pblock ppersonality"><h3>Personality</h3>${bars(PERSONALITY, p)}</div>
       </div>
       <div class="pblock pradar"><h3>Attribute profile</h3>${radarSvg(p)}</div>
     </div>
@@ -390,10 +362,8 @@ function renderProfile(p, h) {
         ${pos.includes("GK") ? attrColumn("Goalkeeping", ATTR_GROUPS.Goalkeeping, p) : ""}
       </div></div>
       <div class="pblock pitch"><h3>Positions</h3>${pitchSvg(pos)}<div class="pos-lists"><div><b>Natural</b> ${esc(p.posNat || p.posArr || p.pos || "—")}</div><div><b>Accomplished</b> ${esc(p.posArr || p.pos || "—")}</div></div></div>
-      <div class="pblock personality"><h3>Personality</h3>${bars(PERSONALITY, p)}<h3 class="mt">Info</h3><div class="bio-grid"><div>${bio("Gender", p.gender || "—")}${bio("Positions", p.pos || "—")}${bio("Natural positions", p.posNat || p.posArr || p.pos || "—")}</div><div>${bio("Club", p.club_display || p.club || "Free agent")}${bio("Division", p.div || "—")}${bio("Reputation", fmtInt(p.worldRep))}</div></div></div>
     </div>
 
-    ${latestSeasonBlock(h)}
     <div class="pblock phistory">${renderHistory(h)}</div>
   </div>`;
 }

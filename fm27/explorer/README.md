@@ -40,13 +40,13 @@ FM27_DB="/path/to/Football Manager 27/shared/data/database/db/2700/2700_fm" \
 
 Clicking a player opens a full-screen, FM-style dashboard:
 
-- hero portrait on a club-colour gradient, with nation flag, club logo and division
+- hero portrait at its native 250×250 resolution (no upscaling blur), on a
+  club-colour gradient, with nation flag, club logo and division
 - key facts (DOB, age, height, foot, contract, wage, value, asking price, reputation)
-- CA/PA, position chips, **PRO / KONTRA** lists (best/worst attributes)
+- CA/PA, position chips and personality bars
 - 8-axis **attribute radar** (technique, mental, physical, defending, attacking, speed, aerial, goalkeeping)
 - Technical / Mental / Physical attribute columns with coloured bars
 - **position pitch** showing natural and accomplished positions
-- **latest-season** competition stats (apps, goals)
 - full **career history** with club and competition logos + CSV download
 
 Morale, condition, training, form and per-match stats are not present in the

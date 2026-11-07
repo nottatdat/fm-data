@@ -396,3 +396,37 @@ table.history tr.youth-row td { color: var(--muted); }
   .ppage { padding: 14px 12px 60px; }
   .pcard { min-height: 340px; }
 }
+
+/* compact profile: native-size portrait, no season/pro-contra */
+.ppage { padding: 18px 22px 60px; }
+.phero { grid-template-columns: 250px minmax(0, 1fr) 300px; gap: 12px; }
+.pcard { min-height: 300px; }
+.pfaceimg { width: 100%; height: auto; max-height: 100%; object-fit: contain; object-position: bottom center; }
+.ppos { top: -8px; font-size: 72px; letter-spacing: -4px; }
+.pname { bottom: 40px; left: 10px; right: 10px; }
+.pname h1 { font-size: 20px; }
+.pclub { bottom: 10px; left: 10px; right: 10px; font-size: 11.5px; }
+.pinfo { gap: 8px; }
+.pfacts { padding: 6px 12px; }
+.fact { padding: 3px 0; font-size: 11.5px; }
+.pblock { padding: 12px; }
+.pblock h3 { margin-bottom: 8px; }
+.ppersonality { padding: 8px 12px; }
+.ppersonality h3 { margin-bottom: 6px; }
+.ppersonality .bars { grid-template-columns: 1fr 1fr; gap: 4px 14px; }
+.pradar { padding: 10px; }
+.radarsvg { max-height: 300px; }
+.pgrid { grid-template-columns: 1.6fr 1fr; gap: 12px; margin-top: 12px; }
+.pitchsvg { max-height: 340px; }
+.phistory { margin-top: 12px; }
+.pblock .table-wrap { max-height: 400px; }
+@media (max-width: 1200px) {
+  .phero { grid-template-columns: 230px 1fr; }
+  .pradar { grid-column: 1 / -1; }
+  .pgrid { grid-template-columns: 1.4fr 1fr; }
+}
+@media (max-width: 800px) {
+  .phero, .pgrid { grid-template-columns: 1fr; }
+  .pradar { grid-column: auto; }
+  .ppersonality .bars { grid-template-columns: 1fr; }
+}
