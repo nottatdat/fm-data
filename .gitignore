@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Logs
+*.log
+
+# Large intermediate dumps (kept locally, re-creatable from the game)
+fm27/work/*.json
+
+# OS
+.DS_Store
