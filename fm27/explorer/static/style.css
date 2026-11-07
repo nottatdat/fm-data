@@ -448,3 +448,12 @@ table.history tr.youth-row td { color: var(--muted); }
   .phero, .pgrid { grid-template-columns: 1fr; }
   .pradar, .phero .pitch { grid-column: auto; }
 }
+
+/* portrait text at the top-left, face below it */
+.pcard { display: flex; flex-direction: column; }
+.pcard:after { background: linear-gradient(180deg, rgba(0,0,0,.45), transparent 34%); }
+.pname { position: static; padding: 10px 12px 0; z-index: 3; }
+.pname h1 { font-size: 19px; margin: 0 0 2px; }
+.pclub { position: static; padding: 5px 12px 0; z-index: 3; }
+.pface { position: relative; flex: 1; min-height: 0; inset: auto; display: flex; align-items: flex-end; justify-content: center; z-index: 2; }
+.pfaceimg { width: 100%; height: auto; max-height: 100%; object-fit: contain; object-position: bottom center; }

@@ -335,9 +335,9 @@ function renderProfile(p, h) {
     <div class="phero">
       <div class="pcard" style="--c1:${colors.c1};--c2:${colors.c2}">
         <div class="ppos">${esc(pos[0] || "")}</div>
-        <div class="pface">${face}</div>
         <div class="pname"><h1>${esc(p.name)}</h1><div class="psub">${flag} ${esc(p.nat || "—")} · ${p.age ?? "—"} years</div></div>
         <div class="pclub">${clubLogo}<span>${esc(p.club_display || p.club || "Free agent")}</span>${p.div ? `<em>${esc(p.div)}</em>` : ""}</div>
+        <div class="pface">${face}</div>
       </div>
       <div class="pinfo">
         <div class="pbadges"><span class="badge ca">CA ${p.ca ?? "—"}</span><span class="badge pa">PA ${p.pa ?? "—"}</span>${chips}</div>

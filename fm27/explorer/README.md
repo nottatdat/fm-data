@@ -44,7 +44,8 @@ Clicking a player opens a full-screen, FM-style dashboard:
 **Second row** — attribute columns · career history
 
 - hero portrait at its native 250×250 resolution (no upscaling blur), on a
-  club-colour gradient, with nation flag, club logo and division
+  club-colour gradient, with the name / nation / club at the top-left and the
+  face below the text
 - key facts (DOB, age, height, foot, contract, wage, value, asking price, reputation)
 - CA/PA, position chips and personality bars
 - 8-axis **attribute radar** (technique, mental, physical, defending, attacking, speed, aerial, goalkeeping)
