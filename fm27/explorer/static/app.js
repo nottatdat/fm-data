@@ -112,7 +112,7 @@ async function loadFilters() {
     $("#stats-line").textContent =
       `${fmtInt(s.players)} players · ${fmtInt(s.clubs)} clubs · ${fmtInt(s.divisions)} divisions · ${fmtInt(s.nations)} nations`;
     fillDatalist("#nations", f.nations);
-    fillDatalist("#clubs", f.clubs.map((x) => x.club));
+    fillDatalist("#clubs", f.clubs.map((x) => x.display));
     fillDatalist("#divisions", f.divisions.map((x) => x.div));
     const pos = $("#pos");
     for (const p of f.positions) {
@@ -188,7 +188,7 @@ function card(p) {
       <div class="meta">${flag}${esc(p.nat || "—")}</div>
       <div class="club">
         <img class="club-logo" src="/api/player-club-logo/${p.id}" alt="" loading="lazy" onerror="this.remove()">
-        <span class="club-name">${esc(p.club || "Free agent")}</span>
+        <span class="club-name">${esc(p.club_display || p.club || "Free agent")}</span>
         ${p.div ? `<span class="div">· ${esc(p.div)}</span>` : ""}
       </div>
       <div class="chips">${chips}</div>
@@ -350,7 +350,7 @@ function latestSeasonBlock(h) {
 
 function renderProfile(p, h) {
   const pos = positionsOf(p);
-  const colors = clubColors(p.club);
+  const colors = clubColors(p.club_display || p.club);
   const flag = p.natId ? `<img class="flag" src="/api/nation-logo/${p.natId}" alt="" onerror="this.remove()">` : "";
   const face = `<div class="pfallback">${esc(initials(p.name))}</div><img class="pfaceimg" src="/api/face/${p.id}" alt="" decoding="async" onerror="this.remove()">`;
   const clubLogo = `<img class="club-logo" src="/api/player-club-logo/${p.id}" alt="" onerror="this.remove()">`;
@@ -362,12 +362,12 @@ function renderProfile(p, h) {
         <div class="ppos">${esc(pos[0] || "")}</div>
         <div class="pface">${face}</div>
         <div class="pname"><h1>${esc(p.name)}</h1><div class="psub">${flag} ${esc(p.nat || "—")} · ${p.age ?? "—"} years</div></div>
-        <div class="pclub">${clubLogo}<span>${esc(p.club || "Free agent")}</span>${p.div ? `<em>${esc(p.div)}</em>` : ""}</div>
+        <div class="pclub">${clubLogo}<span>${esc(p.club_display || p.club || "Free agent")}</span>${p.div ? `<em>${esc(p.div)}</em>` : ""}</div>
       </div>
       <div class="pinfo">
         <div class="pbadges"><span class="badge ca">CA ${p.ca ?? "—"}</span><span class="badge pa">PA ${p.pa ?? "—"}</span>${chips}</div>
         <div class="pfacts">
-          ${fact("Nationality", p.nat || "—")}${fact("Club", p.club || "Free agent")}
+          ${fact("Nationality", p.nat || "—")}${fact("Club", p.club_display || p.club || "Free agent")}
           ${fact("Age", p.age ?? "—")}${fact("Date of birth", p.dob || "—")}
           ${fact("Height", p.height ? p.height + " cm" : "—")}${fact("Preferred foot", p.foot || "—")}
           ${fact("Contract expires", p.expires || "—")}${fact("Wage", fmtWage(p.wage))}
@@ -390,7 +390,7 @@ function renderProfile(p, h) {
         ${pos.includes("GK") ? attrColumn("Goalkeeping", ATTR_GROUPS.Goalkeeping, p) : ""}
       </div></div>
       <div class="pblock pitch"><h3>Positions</h3>${pitchSvg(pos)}<div class="pos-lists"><div><b>Natural</b> ${esc(p.posNat || p.posArr || p.pos || "—")}</div><div><b>Accomplished</b> ${esc(p.posArr || p.pos || "—")}</div></div></div>
-      <div class="pblock personality"><h3>Personality</h3>${bars(PERSONALITY, p)}<h3 class="mt">Info</h3><div class="bio-grid"><div>${bio("Gender", p.gender || "—")}${bio("Positions", p.pos || "—")}${bio("Natural positions", p.posNat || p.posArr || p.pos || "—")}</div><div>${bio("Club", p.club || "Free agent")}${bio("Division", p.div || "—")}${bio("Reputation", fmtInt(p.worldRep))}</div></div></div>
+      <div class="pblock personality"><h3>Personality</h3>${bars(PERSONALITY, p)}<h3 class="mt">Info</h3><div class="bio-grid"><div>${bio("Gender", p.gender || "—")}${bio("Positions", p.pos || "—")}${bio("Natural positions", p.posNat || p.posArr || p.pos || "—")}</div><div>${bio("Club", p.club_display || p.club || "Free agent")}${bio("Division", p.div || "—")}${bio("Reputation", fmtInt(p.worldRep))}</div></div></div>
     </div>
 
     ${latestSeasonBlock(h)}
@@ -406,12 +406,12 @@ function renderHistory(h) {
   const t = h.totals || {};
   const rows = recs.map((r) => {
     const youth = r.record_type !== "Senior" ? `<span class="tag youth">${esc(r.record_type)}</span>` : "";
-    const loan = r.parent_club ? `<span class="loan"> · on loan from ${esc(r.parent_club)}</span>` : "";
+    const loan = r.parent_club ? `<span class="loan"> · on loan from ${esc(r.parent_club_display || r.parent_club)}</span>` : "";
     const clubLogo = r.club_id ? `<img class="club-logo small" src="/api/club-logo/${r.club_id}" alt="" loading="lazy" onerror="this.remove()">` : "";
     const compLogo = r.competition_id ? `<img class="comp-logo" src="/api/comp-logo/${r.competition_id}" alt="" loading="lazy" onerror="this.remove()">` : "";
     return `<tr class="${r.record_type !== "Senior" ? "youth-row" : ""}">
       <td class="season">${esc(seasonLabel(r))}</td>
-      <td>${clubLogo}${esc(r.club || "—")}${loan}${youth}</td>
+      <td>${clubLogo}${esc(r.club_display || r.club || "—")}${loan}${youth}</td>
       <td>${compLogo}${esc(r.competition || "—")}</td>
       <td class="num">${r.apps ?? "—"}</td>
       <td class="num">${r.goals ?? "—"}</td>

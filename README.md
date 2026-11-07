@@ -33,7 +33,8 @@ python3 server.py --port 8770     # or ./run.sh
 # open http://127.0.0.1:8770
 ```
 
-516,038 players, full-text search, filters, local faces/club logos, and
+516,038 players, full-text search, filters, smart club aliases
+(Real Madrid ↔ R. Madrid, PSG, Man City…), local faces/club logos, and
 season-by-season history (club, competition, appearances, goals). The SQLite
 databases are built on first run (~1 min) and are gitignored.
 See [`fm27/explorer/README.md`](fm27/explorer/README.md).

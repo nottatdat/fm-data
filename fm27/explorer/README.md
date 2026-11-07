@@ -52,6 +52,33 @@ Clicking a player opens a full-screen, FM-style dashboard:
 Morale, condition, training, form and per-match stats are not present in the
 exported database; the profile shows everything the data has.
 
+## Club names and search
+
+FM27 ships short/licensing-friendly club names. The explorer shows a canonical
+display name and accepts many query forms:
+
+| FM27 name | Display | Also matches |
+|---|---|---|
+| `R. Madrid` | Real Madrid | `madrid`, `r madrid`, `rm` |
+| `A. Madrid` | Atlético Madrid | `atletico`, `atleti` |
+| `A. Bilbao` | Athletic Bilbao | `athletic` |
+| `FC Bayern München` | Bayern Munich | `bayern`, `bayern munchen` |
+| `Casciavit Milano` | AC Milan | `milan`, `ac milan` |
+| `Blu-neri Milano` | Inter Milan | `inter`, `internazionale` |
+| `Paris Saint-Germain` | Paris Saint-Germain | `psg` |
+| `Manchester City` | Manchester City | `man city` |
+| `Manchester United` | Manchester United | `man utd`, `man united` |
+| `Wolverhampton Wanderers` | Wolves | `wolverhampton` |
+| `Tottenham Hotspur` | Tottenham Hotspur | `spurs` |
+| `1. FC Köln` | FC Köln | `koln`, `cologne` |
+
+Matching is accent-insensitive, accepts prefixes (`dortmund`),
+city exonyms (`munich`/`münchen`, `lisbon`/`lisboa`), acronyms (`psg`, `rm`)
+and common nicknames. The Club dropdown lists the 500 most-populated clubs;
+typing any other club still resolves against all 30,387 clubs. The global
+search box (`q`) uses the same alias text, so `Real Madrid` also finds the
+club's players there.
+
 ## Career history
 
 The shipped FM27 database stores a 44-byte record per player-season. Decoded layout:

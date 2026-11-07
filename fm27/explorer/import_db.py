@@ -18,6 +18,24 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CSV = os.path.abspath(os.path.join(HERE, "..", "csv_515k", "fm27_players.csv"))
 DB = os.path.join(HERE, "data", "fm27.db")
 
+sys.path.insert(0, HERE)
+import clubnames
+
+_display_cache = {}
+_search_cache = {}
+
+
+def _club_display(club):
+    if club not in _display_cache:
+        _display_cache[club] = clubnames.display_name(club)
+    return _display_cache[club]
+
+
+def _club_search(club):
+    if club not in _search_cache:
+        _search_cache[club] = clubnames.search_text(club)
+    return _search_cache[club]
+
 TEXT_COLS = [
     "name", "dob", "nat", "club", "ownerClub", "div", "pos", "posArr", "posNat",
     "expires", "listed", "loanListed", "notForSale", "setForRelease",
@@ -42,7 +60,7 @@ ATTRS = [
     "Determination", "Composure", "Concentration", "Dirtiness", "Consistency",
     "ImportantMatches", "InjuryProneness", "Versatility",
 ]
-ALL_COLS = ["id"] + TEXT_COLS + INT_COLS + ATTRS + ["foot", "gender"]
+ALL_COLS = ["id"] + TEXT_COLS + INT_COLS + ATTRS + ["foot", "gender", "club_display", "club_search"]
 
 FOOT_EN = {"Rechts": "Right", "Links": "Left", "Beide": "Both"}
 
@@ -77,7 +95,7 @@ def build(db_path=DB, csv_path=CSV, force=False):
     for c in ALL_COLS:
         if c == "id":
             sql_cols.append('"id" INTEGER PRIMARY KEY')
-        elif c in ("foot", "gender"):
+        elif c in ("foot", "gender", "club_display", "club_search"):
             sql_cols.append(f'"{c}" TEXT')
         elif c in TEXT_COLS:
             sql_cols.append(f'"{c}" TEXT')
@@ -114,6 +132,10 @@ def build(db_path=DB, csv_path=CSV, force=False):
                     vals.append(FOOT_EN.get(_to_text(row.get(c)), _to_text(row.get(c))))
                 elif c == "gender":
                     vals.append("Women" if _to_text(row.get(c)) == "1" else "Men")
+                elif c == "club_display":
+                    vals.append(_club_display(_to_text(row.get("club"))))
+                elif c == "club_search":
+                    vals.append(_club_search(_to_text(row.get("club"))))
                 elif c in TEXT_COLS:
                     vals.append(_to_text(row.get(c)))
                 else:
@@ -131,8 +153,8 @@ def build(db_path=DB, csv_path=CSV, force=False):
     print(f"  inserted {n:,} players in {time.time()-t0:.0f}s", flush=True)
 
     print("  building FTS index...", flush=True)
-    con.execute("CREATE VIRTUAL TABLE players_fts USING fts5(name, club, nat, div, content='players', content_rowid='id')")
-    con.execute("INSERT INTO players_fts(rowid, name, club, nat, div) SELECT id, name, club, nat, div FROM players")
+    con.execute("CREATE VIRTUAL TABLE players_fts USING fts5(name, club, club_search, nat, div, content='players', content_rowid='id')")
+    con.execute("INSERT INTO players_fts(rowid, name, club, club_search, nat, div) SELECT id, name, club, club_search, nat, div FROM players")
     con.commit()
     con.execute("VACUUM")
     con.close()

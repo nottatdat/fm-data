@@ -24,6 +24,8 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import clubnames
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 DB = os.path.join(HERE, "data", "fm27.db")
 HIST_DB = os.path.join(HERE, "data", "history.db")
@@ -38,7 +40,7 @@ COMP_LOGO_DIR = os.path.join(LOGO_ROOT, "Competitions", "Normal")
 NATION_LOGO_DIR = os.path.join(LOGO_ROOT, "Nations", "Normal")
 
 LIST_COLS = ("p.id,p.name,p.age,p.nat,p.natId,p.club,p.div,p.ca,p.pa,p.pos,p.posNat,"
-             "p.foot,p.height,p.value,p.gender")
+             "p.foot,p.height,p.value,p.gender,p.club_display")
 SORT_COLS = {
     "ca": "p.ca", "pa": "p.pa", "age": "p.age", "name": "p.name",
     "value": "p.value", "wage": "p.wage", "height": "p.height",
@@ -52,6 +54,17 @@ POSITIONS = ["GK", "DC", "DL", "DR", "WBL", "WBR", "DM", "MC", "ML", "MR",
 # --------------------------------------------------------------------------
 # database
 # --------------------------------------------------------------------------
+CLUB_INDEX = None
+
+
+def _build_club_index():
+    global CLUB_INDEX
+    con = connect()
+    rows = con.execute("SELECT club, COUNT(*) FROM players WHERE club<>'' GROUP BY club").fetchall()
+    con.close()
+    CLUB_INDEX = clubnames.ClubIndex([(r[0], r[1]) for r in rows])
+
+
 def ensure_db():
     sys.path.insert(0, HERE)
     if not os.path.exists(DB):
@@ -71,6 +84,7 @@ def ensure_db():
         import import_history
         print("building history database (first run)...", flush=True)
         import_history.main()
+    _build_club_index()
 
 
 def connect():
@@ -120,7 +134,12 @@ def build_search(params, use_fts=True):
     if nat:
         add("p.nat", f"%{nat}%", "LIKE")
     if club:
-        add("p.club", f"%{club}%", "LIKE")
+        matches = CLUB_INDEX.resolve(club) if CLUB_INDEX else []
+        if matches:
+            where.append("p.club IN (" + ",".join("?" * len(matches)) + ")")
+            args.extend(matches)
+        else:
+            add("p.club", f"%{club}%", "LIKE")
     if div:
         add("p.div", f"%{div}%", "LIKE")
     if pos in POSITIONS:
@@ -196,9 +215,7 @@ def get_filters():
                 n = n.strip()
                 if n:
                     nations.add(n)
-        clubs = [dict(r) for r in con.execute(
-            "SELECT club, COUNT(*) c FROM players WHERE club<>'' "
-            "GROUP BY club ORDER BY c DESC, club LIMIT 500")]
+        clubs = CLUB_INDEX.top(500) if CLUB_INDEX else []
         divs = [dict(r) for r in con.execute(
             "SELECT div, COUNT(*) c FROM players WHERE div<>'' "
             "GROUP BY div ORDER BY c DESC, div LIMIT 500")]
@@ -280,6 +297,8 @@ def get_history(pid):
         con.close()
     for r in rows:
         r["season"] = _season_label(r["season_start"], r["season_end"])
+        r["club_display"] = clubnames.display_name(r["club"]) if r.get("club") else ""
+        r["parent_club_display"] = clubnames.display_name(r["parent_club"]) if r.get("parent_club") else ""
         if r.get("parent_club") == r.get("club"):
             r["parent_club"] = ""
         if r.get("parent_competition") == r.get("competition"):
