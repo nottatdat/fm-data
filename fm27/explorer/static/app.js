@@ -24,10 +24,31 @@ const ATTR_GROUPS = {
 const PERSONALITY = ["adaptability", "ambition", "loyalty", "pressure", "professionalism",
   "sportsmanship", "temperament", "controversy"];
 
-const photoMemo = new Map();
-const photoQueue = [];
-let photoActive = 0;
-const PHOTO_CONCURRENCY = 4;
+const ATTR_LABELS = {
+  OffTheBall: "Off The Ball", JumpingReach: "Jumping Reach", LongShots: "Long Shots",
+  FirstTouch: "First Touch", WorkRate: "Work Rate", NaturalFitness: "Natural Fitness",
+  ImportantMatches: "Important Matches", InjuryProneness: "Injury Proneness",
+  OneOnOnes: "One On Ones", CommandOfArea: "Command Of Area", AerialReach: "Aerial Reach",
+  LongThrows: "Long Throws", FreeKicks: "Free Kicks", PenaltyTaking: "Penalty Taking",
+};
+const GK_KEYS = new Set(ATTR_GROUPS.Goalkeeping);
+const ALL_ATTRS = Object.values(ATTR_GROUPS).flat();
+const RADAR_AXES = [
+  ["Technique", ["Crossing", "Dribbling", "Finishing", "FirstTouch", "Technique", "Passing", "LongShots", "FreeKicks", "PenaltyTaking", "Corners"]],
+  ["Mental", ["Anticipation", "Decisions", "Composure", "Concentration", "Determination", "Teamwork", "WorkRate", "Leadership", "Positioning", "OffTheBall", "Vision", "Consistency", "ImportantMatches"]],
+  ["Physical", ["Acceleration", "Pace", "Strength", "Stamina", "Agility", "Balance", "JumpingReach", "NaturalFitness"]],
+  ["Defending", ["Marking", "Tackling", "Positioning", "Concentration", "Bravery", "Aggression", "WorkRate", "Strength"]],
+  ["Attacking", ["Finishing", "LongShots", "OffTheBall", "Composure", "Dribbling", "FirstTouch", "Technique", "Flair", "Acceleration", "Pace"]],
+  ["Speed", ["Acceleration", "Pace"]],
+  ["Aerial", ["Heading", "JumpingReach", "Strength", "Bravery"]],
+  ["Goalkeeping", ATTR_GROUPS.Goalkeeping],
+];
+const POS_COORDS = {
+  GK: [100, 232], DL: [28, 205], DC: [100, 205], DR: [172, 205],
+  WBL: [14, 165], WBR: [186, 165], DM: [100, 168],
+  ML: [28, 128], MC: [100, 128], MR: [172, 128],
+  AML: [28, 88], AMC: [100, 88], AMR: [172, 88], ST: [100, 38],
+};
 
 /* ---------------- helpers ---------------- */
 function esc(v) {
@@ -147,7 +168,6 @@ function renderResults(data) {
   const frag = document.createDocumentFragment();
   for (const p of data.players) frag.appendChild(card(p));
   grid.appendChild(frag);
-  observePhotos();
   renderPager(data);
 }
 
@@ -157,14 +177,20 @@ function card(p) {
   el.dataset.id = p.id;
   const chips = String(p.pos || "").split(",").map((s) => s.trim()).filter(Boolean)
     .slice(0, 5).map((s) => `<span class="chip">${esc(s)}</span>`).join("");
+  const flag = p.natId ? `<img class="flag" src="/api/nation-logo/${p.natId}" alt="" loading="lazy" onerror="this.remove()">` : "";
   el.innerHTML = `
-    <div class="photo" data-id="${p.id}">
+    <div class="photo">
       <div class="fallback">${esc(initials(p.name))}</div>
+      <img class="face" src="/api/face/${p.id}" alt="" loading="lazy" decoding="async" onerror="this.remove()">
     </div>
     <div class="card-body">
       <div class="card-top"><h3>${esc(p.name)}</h3><span class="age">${p.age ?? "—"}</span></div>
-      <div class="meta">${esc(p.nat || "—")}</div>
-      <div class="club">${esc(p.club || "Free agent")}${p.div ? ` <span class="div">· ${esc(p.div)}</span>` : ""}</div>
+      <div class="meta">${flag}${esc(p.nat || "—")}</div>
+      <div class="club">
+        <img class="club-logo" src="/api/player-club-logo/${p.id}" alt="" loading="lazy" onerror="this.remove()">
+        <span class="club-name">${esc(p.club || "Free agent")}</span>
+        ${p.div ? `<span class="div">· ${esc(p.div)}</span>` : ""}
+      </div>
       <div class="chips">${chips}</div>
       <div class="stats">
         <span class="badge ca">CA ${p.ca ?? "—"}</span>
@@ -194,53 +220,6 @@ function renderPager(data) {
   }
 }
 
-/* ---------------- photos (live Wikipedia, no server cache) ---------------- */
-const io = new IntersectionObserver((entries) => {
-  for (const e of entries) {
-    if (!e.isIntersecting) continue;
-    io.unobserve(e.target);
-    enqueuePhoto(e.target);
-  }
-}, { rootMargin: "300px" });
-
-function observePhotos() {
-  document.querySelectorAll(".photo[data-id]").forEach((el) => {
-    if (!el.dataset.done) io.observe(el);
-  });
-}
-
-function enqueuePhoto(el) {
-  if (el.dataset.done) return;
-  el.dataset.done = "1";
-  photoQueue.push(el);
-  pumpPhotos();
-}
-
-function pumpPhotos() {
-  while (photoActive < PHOTO_CONCURRENCY && photoQueue.length) {
-    const el = photoQueue.shift();
-    const id = String(el.dataset.id || "");
-    if (!id) continue;
-    if (photoMemo.has(id)) { applyPhoto(el, photoMemo.get(id)); continue; }
-    photoActive++;
-    fetch(`/api/photo/${encodeURIComponent(id)}`)
-      .then((r) => r.json())
-      .then((p) => { photoMemo.set(id, p); applyPhoto(el, p); })
-      .catch(() => {})
-      .finally(() => { photoActive--; pumpPhotos(); });
-  }
-}
-
-function applyPhoto(el, p) {
-  if (!p || !p.found || !p.thumb) return;
-  const img = new Image();
-  img.referrerPolicy = "no-referrer";
-  img.alt = "";
-  img.onload = () => { el.innerHTML = ""; el.appendChild(img); };
-  img.onerror = () => {};
-  img.src = p.thumb;
-}
-
 /* ---------------- profile drawer ---------------- */
 async function openPlayer(id) {
   const drawer = $("#drawer");
@@ -249,20 +228,13 @@ async function openPlayer(id) {
   drawer.setAttribute("aria-hidden", "false");
   document.body.classList.add("locked");
   profile.innerHTML = '<div class="loading">Loading profile…</div>';
-  profile.scrollTop = 0;
+  drawer.querySelector(".panel").scrollTop = 0;
   try {
     const [p, h] = await Promise.all([
       api(`/api/player/${encodeURIComponent(id)}`),
       api(`/api/history/${encodeURIComponent(id)}`),
     ]);
-    const memo = photoMemo.get(String(id)) || null;
-    profile.innerHTML = renderProfile(p, h, memo);
-    if (!memo) {
-      api(`/api/photo/${encodeURIComponent(id)}`).then((ph) => {
-        photoMemo.set(String(id), ph);
-        updateProfilePhoto(ph);
-      }).catch(() => {});
-    }
+    profile.innerHTML = renderProfile(p, h);
   } catch (e) {
     profile.innerHTML = `<div class="loading">Could not load player: ${esc(e.message)}</div>`;
   }
@@ -292,63 +264,138 @@ function bars(keys, obj) {
   }).join("") + `</div>`;
 }
 
-function renderProfile(p, h, photo) {
-  const found = photo && photo.found && photo.thumb;
-  const photoHtml = found
-    ? `<img src="${esc(photo.thumb)}" alt="" referrerpolicy="no-referrer">`
-    : esc(initials(p.name));
-  const credit = found
-    ? `<div class="credit">Photo: <a href="${esc(photo.page)}" target="_blank" rel="noopener">${esc(photo.title)} · Wikipedia</a></div>`
-    : `<div class="credit">No Wikipedia photo found.</div>`;
-  const chips = String(p.pos || "").split(",").map((s) => s.trim()).filter(Boolean)
-    .map((s) => `<span class="chip">${esc(s)}</span>`).join("");
-  return `
-    <div class="profile-head">
-      <div class="profile-photo" id="profile-photo">${photoHtml}</div>
-      <div class="profile-title">
-        <h2>${esc(p.name)}</h2>
-        <div class="sub">${esc(p.nat || "—")} · ${p.age ?? "—"} years</div>
-        <div class="club-line">${esc(p.club || "Free agent")}${p.div ? ` · ${esc(p.div)}` : ""}</div>
-        <div class="big-badges">
-          <span class="badge ca">CA ${p.ca ?? "—"}</span>
-          <span class="badge pa">PA ${p.pa ?? "—"}</span>
-          ${chips}
-        </div>
-        <div class="credit" id="profile-credit">${credit}</div>
-      </div>
-    </div>
-
-    <div class="section"><h3>Profile</h3>
-      <div class="bio-grid">
-        <div>${bio("Date of birth", p.dob || "—")}${bio("Age", p.age ?? "—")}${bio("Nationality", p.nat || "—")}${bio("Gender", p.gender || "—")}${bio("Club", p.club || "Free agent")}${bio("Division", p.div || "—")}${bio("Position", p.pos || "—")}${bio("Natural positions", p.posNat || "—")}</div>
-        <div>${bio("Preferred foot", p.foot || "—")}${bio("Height", p.height ? p.height + " cm" : "—")}${bio("Market value", fmtMoney(p.value))}${bio("Asking price", fmtMoney(p.askingPrice))}${bio("Wage", fmtWage(p.wage))}${bio("Contract expires", p.expires || "—")}${bio("World reputation", fmtInt(p.worldRep))}${bio("Club reputation", fmtInt(p.clubRep))}</div>
-      </div>
-    </div>
-
-    <div class="section history" id="history-section">${renderHistory(h)}</div>
-
-    <div class="section"><h3>Personality</h3>${bars(PERSONALITY, p)}</div>
-
-    <div class="section"><h3>Attributes</h3>
-      <div class="attr-groups">
-        ${Object.entries(ATTR_GROUPS).map(([g, keys]) => `<div class="attr-group"><h4>${g}</h4>${bars(keys, p)}</div>`).join("")}
-      </div>
-    </div>`;
+function label(k) { return ATTR_LABELS[k] || k; }
+function avg(obj, keys) {
+  const v = keys.map((k) => Number(obj[k])).filter((x) => Number.isFinite(x));
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
+}
+function positionsOf(p) {
+  const raw = (p.posNat || p.posArr || p.pos || "").replace(/,/g, ";");
+  return [...new Set(raw.split(";").map((s) => s.trim().toUpperCase()).filter(Boolean))];
+}
+function clubColors(name) {
+  let h = 0;
+  for (const ch of String(name || "")) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const hue = h % 360;
+  return { c1: `hsl(${hue} 52% 30%)`, c2: `hsl(${(hue + 50) % 360} 55% 12%)` };
+}
+function fact(k, v) { return `<div class="fact"><span>${esc(k)}</span><b>${esc(v ?? "—")}</b></div>`; }
+function attrRow(k, p) {
+  const raw = p[k]; const v = Number(raw);
+  const has = raw !== null && raw !== "" && Number.isFinite(v);
+  return `<div class="attr-row"><span class="an" title="${esc(label(k))}">${esc(label(k))}</span><span class="av">${has ? v : "—"}</span><span class="ab"><i class="${attrClass(has ? v : 0)}" style="width:${has ? Math.min(100, v * 5) : 0}%"></i></span></div>`;
+}
+function attrColumn(title, keys, p) {
+  return `<div class="attr-col"><h4>${esc(title)}</h4>${keys.map((k) => attrRow(k, p)).join("")}</div>`;
+}
+function proContra(p, best) {
+  const isGK = positionsOf(p).includes("GK");
+  const keys = isGK ? ALL_ATTRS : ALL_ATTRS.filter((k) => !GK_KEYS.has(k));
+  const rows = keys.map((k) => [k, Number(p[k])]).filter(([, v]) => Number.isFinite(v) && v > 0);
+  rows.sort((a, b) => best ? b[1] - a[1] : a[1] - b[1]);
+  return rows.slice(0, 5).map(([k, v]) =>
+    `<div class="pc-row"><span>${esc(label(k))}</span><b>${v}</b><i><em class="${best ? "good" : "bad"}" style="width:${v * 5}%"></em></i></div>`).join("");
+}
+function radarSvg(p) {
+  const cx = 160, cy = 160, R = 104, n = RADAR_AXES.length;
+  const pt = (i, r) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
+  const vals = RADAR_AXES.map(([, keys]) => avg(p, keys));
+  let grid = "";
+  for (const f of [0.25, 0.5, 0.75, 1]) {
+    const pts = RADAR_AXES.map((_, i) => pt(i, R * f).map((x) => x.toFixed(1)).join(",")).join(" ");
+    grid += `<polygon points="${pts}" fill="none" stroke="rgba(139,92,246,.16)" stroke-width="1"/>`;
+  }
+  const data = RADAR_AXES.map((_, i) => pt(i, R * Math.max(0, Math.min(1, vals[i] / 20))).map((x) => x.toFixed(1)).join(",")).join(" ");
+  const labels = RADAR_AXES.map(([name], i) => {
+    const [x, y] = pt(i, R + 20);
+    return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#8e99ba">${esc(name)}</text>`;
+  }).join("");
+  const dots = RADAR_AXES.map((_, i) => { const [x, y] = pt(i, R); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.2" fill="#34d399"/>`; }).join("");
+  return `<svg viewBox="0 0 320 320" class="radarsvg">${grid}<polygon points="${data}" fill="rgba(52,211,153,.16)" stroke="#34d399" stroke-width="2"/>${dots}${labels}</svg>`;
+}
+function pitchSvg(active) {
+  const on = new Set(active);
+  const dots = Object.entries(POS_COORDS).map(([k, [x, y]]) => {
+    const a = on.has(k);
+    return `<g class="${a ? "pos-on" : "pos-off"}"><circle cx="${x}" cy="${y}" r="${a ? 7 : 5}"/><text x="${x}" y="${y + 2.6}" text-anchor="middle">${k}</text></g>`;
+  }).join("");
+  return `<svg viewBox="0 0 200 260" class="pitchsvg">
+    <rect x="6" y="6" width="188" height="248" rx="2" class="pitch-bg"/>
+    <rect x="6" y="6" width="188" height="248" class="pitch-line"/>
+    <line x1="6" y1="130" x2="194" y2="130" class="pitch-line"/>
+    <circle cx="100" cy="130" r="24" class="pitch-line"/>
+    <rect x="60" y="6" width="80" height="30" class="pitch-line"/>
+    <rect x="60" y="224" width="80" height="30" class="pitch-line"/>
+    <rect x="76" y="6" width="48" height="12" class="pitch-line"/>
+    <rect x="76" y="242" width="48" height="12" class="pitch-line"/>
+    ${dots}
+  </svg>`;
+}
+function latestSeasonBlock(h) {
+  const recs = (h && h.records) || [];
+  if (!recs.length) return "";
+  const max = Math.max(...recs.map((r) => r.season_end));
+  const rows = recs.filter((r) => r.season_end === max);
+  const season = rows[0].season;
+  const groups = new Map();
+  for (const r of rows) {
+    const key = `${r.competition || "—"}|${r.competition_id || ""}`;
+    if (!groups.has(key)) groups.set(key, { competition: r.competition, competition_id: r.competition_id, apps: 0, goals: 0 });
+    const g = groups.get(key); g.apps += r.apps || 0; g.goals += r.goals || 0;
+  }
+  const tr = [...groups.values()].map((g) => `<tr><td>${g.competition_id ? `<img class="comp-logo" src="/api/comp-logo/${g.competition_id}" alt="" loading="lazy" onerror="this.remove()">` : ""}${esc(g.competition || "—")}</td><td class="num">${g.apps}</td><td class="num">${g.goals}</td></tr>`).join("");
+  const total = [...groups.values()].reduce((a, g) => ({ apps: a.apps + g.apps, goals: a.goals + g.goals }), { apps: 0, goals: 0 });
+  return `<div class="pblock pseason"><h3>Season ${esc(season)}</h3><div class="table-wrap"><table class="history"><thead><tr><th>Competition</th><th class="num">Apps</th><th class="num">Goals</th></tr></thead><tbody>${tr}<tr class="total"><td>Total</td><td class="num">${total.apps}</td><td class="num">${total.goals}</td></tr></tbody></table></div></div>`;
 }
 
-function updateProfilePhoto(photo) {
-  const el = $("#profile-photo");
-  if (!el) return;
-  if (photo && photo.found && photo.thumb) {
-    const img = new Image();
-    img.referrerPolicy = "no-referrer";
-    img.onload = () => { el.innerHTML = ""; el.appendChild(img); };
-    img.src = photo.thumb;
-  }
-  const credit = $("#profile-credit");
-  if (credit && photo && photo.found) {
-    credit.innerHTML = `Photo: <a href="${esc(photo.page)}" target="_blank" rel="noopener">${esc(photo.title)} · Wikipedia</a>`;
-  }
+function renderProfile(p, h) {
+  const pos = positionsOf(p);
+  const colors = clubColors(p.club);
+  const flag = p.natId ? `<img class="flag" src="/api/nation-logo/${p.natId}" alt="" onerror="this.remove()">` : "";
+  const face = `<div class="pfallback">${esc(initials(p.name))}</div><img class="pfaceimg" src="/api/face/${p.id}" alt="" decoding="async" onerror="this.remove()">`;
+  const clubLogo = `<img class="club-logo" src="/api/player-club-logo/${p.id}" alt="" onerror="this.remove()">`;
+  const chips = pos.map((x) => `<span class="chip">${esc(x)}</span>`).join("");
+  return `
+  <div class="ppage">
+    <div class="phero">
+      <div class="pcard" style="--c1:${colors.c1};--c2:${colors.c2}">
+        <div class="ppos">${esc(pos[0] || "")}</div>
+        <div class="pface">${face}</div>
+        <div class="pname"><h1>${esc(p.name)}</h1><div class="psub">${flag} ${esc(p.nat || "—")} · ${p.age ?? "—"} years</div></div>
+        <div class="pclub">${clubLogo}<span>${esc(p.club || "Free agent")}</span>${p.div ? `<em>${esc(p.div)}</em>` : ""}</div>
+      </div>
+      <div class="pinfo">
+        <div class="pbadges"><span class="badge ca">CA ${p.ca ?? "—"}</span><span class="badge pa">PA ${p.pa ?? "—"}</span>${chips}</div>
+        <div class="pfacts">
+          ${fact("Nationality", p.nat || "—")}${fact("Club", p.club || "Free agent")}
+          ${fact("Age", p.age ?? "—")}${fact("Date of birth", p.dob || "—")}
+          ${fact("Height", p.height ? p.height + " cm" : "—")}${fact("Preferred foot", p.foot || "—")}
+          ${fact("Contract expires", p.expires || "—")}${fact("Wage", fmtWage(p.wage))}
+          ${fact("Market value", fmtMoney(p.value))}${fact("Asking price", fmtMoney(p.askingPrice))}
+          ${fact("World reputation", fmtInt(p.worldRep))}${fact("Club reputation", fmtInt(p.clubRep))}
+        </div>
+        <div class="ppc">
+          <div class="pc pro"><h4>PRO</h4>${proContra(p, true)}</div>
+          <div class="pc con"><h4>KONTRA</h4>${proContra(p, false)}</div>
+        </div>
+      </div>
+      <div class="pblock pradar"><h3>Attribute profile</h3>${radarSvg(p)}</div>
+    </div>
+
+    <div class="pgrid">
+      <div class="pblock attrs"><h3>Attributes</h3><div class="attr-cols">
+        ${attrColumn("Technical", ATTR_GROUPS.Technical, p)}
+        ${attrColumn("Mental", ATTR_GROUPS.Mental, p)}
+        ${attrColumn("Physical", ATTR_GROUPS.Physical, p)}
+        ${pos.includes("GK") ? attrColumn("Goalkeeping", ATTR_GROUPS.Goalkeeping, p) : ""}
+      </div></div>
+      <div class="pblock pitch"><h3>Positions</h3>${pitchSvg(pos)}<div class="pos-lists"><div><b>Natural</b> ${esc(p.posNat || p.posArr || p.pos || "—")}</div><div><b>Accomplished</b> ${esc(p.posArr || p.pos || "—")}</div></div></div>
+      <div class="pblock personality"><h3>Personality</h3>${bars(PERSONALITY, p)}<h3 class="mt">Info</h3><div class="bio-grid"><div>${bio("Gender", p.gender || "—")}${bio("Positions", p.pos || "—")}${bio("Natural positions", p.posNat || p.posArr || p.pos || "—")}</div><div>${bio("Club", p.club || "Free agent")}${bio("Division", p.div || "—")}${bio("Reputation", fmtInt(p.worldRep))}</div></div></div>
+    </div>
+
+    ${latestSeasonBlock(h)}
+    <div class="pblock phistory">${renderHistory(h)}</div>
+  </div>`;
 }
 
 function renderHistory(h) {
@@ -360,10 +407,12 @@ function renderHistory(h) {
   const rows = recs.map((r) => {
     const youth = r.record_type !== "Senior" ? `<span class="tag youth">${esc(r.record_type)}</span>` : "";
     const loan = r.parent_club ? `<span class="loan"> · on loan from ${esc(r.parent_club)}</span>` : "";
+    const clubLogo = r.club_id ? `<img class="club-logo small" src="/api/club-logo/${r.club_id}" alt="" loading="lazy" onerror="this.remove()">` : "";
+    const compLogo = r.competition_id ? `<img class="comp-logo" src="/api/comp-logo/${r.competition_id}" alt="" loading="lazy" onerror="this.remove()">` : "";
     return `<tr class="${r.record_type !== "Senior" ? "youth-row" : ""}">
       <td class="season">${esc(seasonLabel(r))}</td>
-      <td>${esc(r.club || "—")}${loan}${youth}</td>
-      <td>${esc(r.competition || "—")}</td>
+      <td>${clubLogo}${esc(r.club || "—")}${loan}${youth}</td>
+      <td>${compLogo}${esc(r.competition || "—")}</td>
       <td class="num">${r.apps ?? "—"}</td>
       <td class="num">${r.goals ?? "—"}</td>
     </tr>`;

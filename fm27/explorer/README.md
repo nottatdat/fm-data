@@ -4,7 +4,7 @@ A local, dependency-free web app to browse the **516,038-player FM27 database** 
 
 - search by name / club / nation / division (SQLite FTS5)
 - filters: gender, nation, club, division, position, age, CA, PA, sort
-- player profiles with **photos fetched live from Wikipedia**
+- player profiles with **local faces** (sortitoutsi cutout megapack) and **club / competition / nation logos** (FMG Standard Logos)
 - **career / league history**: season, club, competition, appearances, goals,
   senior/youth, loan parent club
 - per-player history CSV download and a full-history CSV exporter
@@ -36,6 +36,22 @@ FM27_DB="/path/to/Football Manager 27/shared/data/database/db/2700/2700_fm" \
   python3 server.py
 ```
 
+## Profile view
+
+Clicking a player opens a full-screen, FM-style dashboard:
+
+- hero portrait on a club-colour gradient, with nation flag, club logo and division
+- key facts (DOB, age, height, foot, contract, wage, value, asking price, reputation)
+- CA/PA, position chips, **PRO / KONTRA** lists (best/worst attributes)
+- 8-axis **attribute radar** (technique, mental, physical, defending, attacking, speed, aerial, goalkeeping)
+- Technical / Mental / Physical attribute columns with coloured bars
+- **position pitch** showing natural and accomplished positions
+- **latest-season** competition stats (apps, goals)
+- full **career history** with club and competition logos + CSV download
+
+Morale, condition, training, form and per-match stats are not present in the
+exported database; the profile shows everything the data has.
+
 ## Career history
 
 The shipped FM27 database stores a 44-byte record per player-season. Decoded layout:
@@ -66,14 +82,32 @@ Export the complete history (all 5.7M records, ~490 MB CSV):
 python3 export_history.py ../csv_515k/fm27_player_history.csv
 ```
 
-## Wikipedia photos
+## Faces and logos (local packs)
 
-`/api/photo/<player-id>` queries the Wikipedia API live (no server-side cache):
-exact title first, then an `intitle:"..." footballer` search; the page title must
-contain the player's surname. Thumbnails are loaded directly from Wikimedia.
-Players without a matching Wikipedia page (regens/newgens) get an initials
-avatar. Photo credit and a Wikipedia link are shown on the profile.
-Photos © their authors via Wikipedia/Wikimedia; check the linked page for the license.
+No web crawling: the explorer reads two local packs.
+
+* **Faces** — sortitoutsi Cutout Megapack 2027:
+  `sortitoutsi/faces/face_<player_id>.png` (558,430 images).
+* **Logos** — FMG Standard Logos 2026:
+  `Clubs/Normal/<club_id>_club.png`, `Competitions/Normal/<competition_id>_comp.png`,
+  `Nations/Normal/<nation_id>_nation.png`.
+
+Extract them under `fm27/explorer/assets/`:
+
+```bash
+mkdir -p assets
+unrar x -o+ -y -idq "../sortitoutsi_cutout_megapack_2027.00.rar" "sortitoutsi/faces/*" assets/
+unzip -q -o "../FMG Standard Logos 2026.00.zip" \
+  "FMG Standard Logos 2026.00/Clubs/Normal/*" \
+  "FMG Standard Logos 2026.00/Competitions/Normal/*" \
+  "FMG Standard Logos 2026.00/Nations/Normal/*" \
+  "FMG Standard Logos 2026.00/Confederations/Normal/*" \
+  "FMG Standard Logos 2026.00/Default/*" -d assets/logos/
+```
+
+The `assets/` tree (~21 GB) and the archives are gitignored. Missing faces fall back
+to initials; missing logos are hidden. Faces © their authors via sortitoutsi;
+logos © their authors via FMG.
 
 ## API
 
@@ -85,7 +119,11 @@ Photos © their authors via Wikipedia/Wikimedia; check the linked page for the l
 | `GET /api/player/<id>` | full player record (all 94 columns + attributes) |
 | `GET /api/history/<id>` | career history records + totals |
 | `GET /api/history/<id>.csv` | history CSV download |
-| `GET /api/photo/<id>` | live Wikipedia photo lookup |
+| `GET /api/face/<id>` | player face from the cutout pack |
+| `GET /api/player-club-logo/<id>` | current club logo |
+| `GET /api/club-logo/<id>` | club logo by club ID |
+| `GET /api/comp-logo/<id>` | competition logo by competition ID |
+| `GET /api/nation-logo/<id>` | nation logo by nation ID |
 
 `sort` ∈ `ca, pa, age, name, value, wage, height, reputation, id`.
 

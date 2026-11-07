@@ -19,7 +19,7 @@ Manager profiles (`meta.manager`) were stripped.
 
 | Path | Contents |
 |---|---|
-| `explorer/` | Local **Profiles Explorer** web app (search, filters, Wikipedia photos, career history) |
+| `explorer/` | Local **Profiles Explorer** web app (search, filters, local faces/club logos, career history) |
 | `offline/` | Offline extracts from the shipped `2700` database: 211,880 people name+DOB, 30,871 with CA/age/position, field codes, parsers |
 | `work/` | Sanitized raw dump `fmsuperscout_dump_515k_sanitized.json` (867 MB, **local only — excluded from git**) and status files |
 | `tools/` | `FMSuperScout.Scanner.exe` (v1.7.3, Windows/Proton) |

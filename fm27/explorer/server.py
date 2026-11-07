@@ -2,8 +2,9 @@
 """FM27 Profiles Explorer — stdlib-only web server.
 
 Serves a searchable/filterable browser over the 516,038-player FM27 database
-(fm27/csv_515k/fm27_players.csv, loaded into SQLite) and fetches profile photos
-live from the Wikipedia API (no caching).
+(fm27/csv_515k/fm27_players.csv, loaded into SQLite), with local face/logo packs
+(sortitoutsi Cutout Megapack + FMG Standard Logos) and career history from the
+shipped pl_hist_* files.
 
 Usage:
     python3 server.py [--port 8770]
@@ -19,11 +20,7 @@ import re
 import sqlite3
 import sys
 import threading
-import time
-import unicodedata
-import urllib.error
 import urllib.parse
-import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -33,7 +30,14 @@ HIST_DB = os.path.join(HERE, "data", "history.db")
 CSV = os.path.join(ROOT, "fm27", "csv_515k", "fm27_players.csv")
 STATIC = os.path.join(HERE, "static")
 
-LIST_COLS = ("p.id,p.name,p.age,p.nat,p.club,p.div,p.ca,p.pa,p.pos,p.posNat,"
+ASSETS = os.path.join(HERE, "assets")
+FACE_DIR = os.path.join(ASSETS, "faces", "sortitoutsi", "faces")
+LOGO_ROOT = os.path.join(ASSETS, "logos", "FMG Standard Logos 2026.00")
+CLUB_LOGO_DIR = os.path.join(LOGO_ROOT, "Clubs", "Normal")
+COMP_LOGO_DIR = os.path.join(LOGO_ROOT, "Competitions", "Normal")
+NATION_LOGO_DIR = os.path.join(LOGO_ROOT, "Nations", "Normal")
+
+LIST_COLS = ("p.id,p.name,p.age,p.nat,p.natId,p.club,p.div,p.ca,p.pa,p.pos,p.posNat,"
              "p.foot,p.height,p.value,p.gender")
 SORT_COLS = {
     "ca": "p.ca", "pa": "p.pa", "age": "p.age", "name": "p.name",
@@ -43,10 +47,6 @@ SORT_COLS = {
 POSITIONS = ["GK", "DC", "DL", "DR", "WBL", "WBR", "DM", "MC", "ML", "MR",
              "AMC", "AML", "AMR", "ST"]
 
-WIKI_UA = {"User-Agent": "FM27ProfilesExplorer/1.0 (local research tool)"}
-_wiki_sem = threading.Semaphore(8)
-_wiki_lock = threading.Lock()
-_wiki_last = 0.0
 
 
 # --------------------------------------------------------------------------
@@ -58,6 +58,15 @@ def ensure_db():
         import import_db
         print("building player database (first run)...", flush=True)
         import_db.build()
+    if os.path.exists(HIST_DB):
+        try:
+            con = sqlite3.connect(HIST_DB)
+            ok = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_club'").fetchone()
+            con.close()
+            if not ok:
+                os.remove(HIST_DB)
+        except Exception:
+            pass
     if not os.path.exists(HIST_DB):
         import import_history
         print("building history database (first run)...", flush=True)
@@ -219,87 +228,31 @@ def get_filters():
 
 
 # --------------------------------------------------------------------------
-# Wikipedia (live, no cache)
+# local face / logo assets
 # --------------------------------------------------------------------------
-def _norm(s):
-    s = unicodedata.normalize("NFKD", str(s or ""))
-    s = "".join(c for c in s if not unicodedata.combining(c))
-    s = re.sub(r"[^a-z0-9 ]+", " ", s.lower())
-    return " ".join(s.split())
-
-
-def _title_score(name, title):
-    nt = _norm(name).split()
-    tt = _norm(title).split()
-    if not nt or not tt:
-        return 0.0
-    if nt[-1] not in tt:          # surname must appear
-        return 0.0
-    common = sum(1 for t in nt if t in tt)
-    return common / len(nt)
-
-
-def _wiki_api(params):
-    params = dict(params)
-    params.update({"format": "json", "formatversion": "2"})
-    url = "https://en.wikipedia.org/w/api.php?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers=WIKI_UA)
-    with urllib.request.urlopen(req, timeout=10) as r:
-        return json.load(r)
-
-
-def _pick_thumbnail(pages, name):
-    best = None
-    for p in pages or []:
-        if p.get("missing") or not p.get("thumbnail"):
-            continue
-        score = _title_score(name, p.get("title", ""))
-        if score <= 0:
-            continue
-        if best is None or score > best[0]:
-            best = (score, p)
-    if not best:
-        return None
-    p = best[1]
-    return {"found": True, "title": p.get("title"), "page": p.get("fullurl"),
-            "thumb": p["thumbnail"]["source"], "source": "Wikipedia"}
-
-
-def wiki_lookup(name, nat=None):
-    global _wiki_last
-    with _wiki_sem:
-        with _wiki_lock:
-            wait = 0.08 - (time.time() - _wiki_last)
-            if wait > 0:
-                time.sleep(wait)
-            _wiki_last = time.time()
-        # 1) exact title (follows redirects)
+def player_club_id(pid):
+    """Club id for a player, from history (preferred) or the clubs name map."""
+    if os.path.exists(HIST_DB):
+        con = sqlite3.connect(HIST_DB, timeout=30)
         try:
-            d = _wiki_api({"action": "query", "prop": "pageimages|info",
-                           "inprop": "url", "piprop": "thumbnail", "pithumbsize": 400,
-                           "redirects": "1", "titles": name})
-            hit = _pick_thumbnail(d.get("query", {}).get("pages"), name)
-            if hit:
-                return hit
-        except Exception:
-            pass
-        # 2) intitle search
-        for query in (f'intitle:"{name}" footballer', f'"{name}" footballer {nat or ""}'.strip()):
-            try:
-                d = _wiki_api({"action": "query", "generator": "search",
-                               "gsrsearch": query, "gsrlimit": "6",
-                               "prop": "pageimages|info", "inprop": "url",
-                               "piprop": "thumbnail", "pithumbsize": 400})
-                pages = d.get("query", {}).get("pages")
-                if isinstance(pages, dict):
-                    pages = list(pages.values())
-                hit = _pick_thumbnail(pages, name)
-                if hit:
-                    return hit
-            except Exception:
-                continue
-        return {"found": False, "title": None, "page": None, "thumb": None,
-                "source": "Wikipedia"}
+            row = con.execute("SELECT club_id FROM player_club WHERE person_id=?", (pid,)).fetchone()
+            if row:
+                return row[0]
+        finally:
+            con.close()
+    con = sqlite3.connect(DB, timeout=30)
+    try:
+        row = con.execute("SELECT club FROM players WHERE id=?", (pid,)).fetchone()
+    finally:
+        con.close()
+    if not row or not row[0] or not os.path.exists(HIST_DB):
+        return None
+    con = sqlite3.connect(HIST_DB, timeout=30)
+    try:
+        row = con.execute("SELECT club_id FROM clubs WHERE name=? ORDER BY club_id LIMIT 1", (row[0],)).fetchone()
+        return row[0] if row else None
+    finally:
+        con.close()
 
 
 # --------------------------------------------------------------------------
@@ -319,9 +272,10 @@ def get_history(pid):
     con.row_factory = sqlite3.Row
     try:
         rows = [dict(r) for r in con.execute(
-            "SELECT season_start,season_end,record_type,apps,goals,club,parent_club,"
-            "competition,parent_competition,extra_hex FROM history WHERE person_id=? "
-            "ORDER BY season_end, season_start, apps DESC", (pid,))]
+            "SELECT season_start,season_end,record_type,apps,goals,club_id,club,"
+            "parent_club_id,parent_club,competition_id,competition,"
+            "parent_competition_id,parent_competition,extra_hex FROM history "
+            "WHERE person_id=? ORDER BY season_end, season_start, apps DESC", (pid,))]
     finally:
         con.close()
     for r in rows:
@@ -365,7 +319,9 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "FM27Profiles/1.0"
 
     def log_message(self, fmt, *args):
-        if args and str(args[0]).startswith(("GET /api/photo", "GET /api/player")):
+        if args and str(args[0]).startswith(("GET /api/face", "GET /api/player-club-logo",
+                                             "GET /api/club-logo", "GET /api/comp-logo",
+                                             "GET /api/nation-logo", "GET /api/player")):
             return
         sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
 
@@ -402,6 +358,21 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_image(self, path):
+        if not path or not os.path.isfile(path):
+            self.send_error(404)
+            return
+        ext = os.path.splitext(path)[1].lower()
+        ctype = "image/png" if ext == ".png" else "image/jpeg" if ext in (".jpg", ".jpeg") else "application/octet-stream"
+        with open(path, "rb") as fh:
+            body = fh.read()
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "public, max-age=86400")
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         params = {k: v[0] for k, v in urllib.parse.parse_qs(parsed.query).items()}
@@ -429,15 +400,22 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({"error": "not found"}, 404)
                 else:
                     self.send_json(dict(row))
-            elif path.startswith("/api/photo/"):
+            elif path.startswith("/api/face/"):
                 pid = path.rsplit("/", 1)[-1]
-                con = connect()
-                row = con.execute("SELECT name,nat FROM players WHERE id=?", (pid,)).fetchone()
-                con.close()
-                if not row:
-                    self.send_json({"found": False, "error": "not found"}, 404)
-                else:
-                    self.send_json(wiki_lookup(row["name"], row["nat"]))
+                self.send_image(os.path.join(FACE_DIR, f"face_{pid}.png"))
+            elif path.startswith("/api/player-club-logo/"):
+                pid = path.rsplit("/", 1)[-1]
+                cid = player_club_id(pid)
+                self.send_image(os.path.join(CLUB_LOGO_DIR, f"{cid}_club.png") if cid else None)
+            elif path.startswith("/api/club-logo/"):
+                cid = path.rsplit("/", 1)[-1]
+                self.send_image(os.path.join(CLUB_LOGO_DIR, f"{cid}_club.png"))
+            elif path.startswith("/api/comp-logo/"):
+                cid = path.rsplit("/", 1)[-1]
+                self.send_image(os.path.join(COMP_LOGO_DIR, f"{cid}_comp.png"))
+            elif path.startswith("/api/nation-logo/"):
+                nid = path.rsplit("/", 1)[-1]
+                self.send_image(os.path.join(NATION_LOGO_DIR, f"{nid}_nation.png"))
             elif path in ("", "/", "/index.html"):
                 self.send_static("index.html")
             elif path.startswith("/static/"):

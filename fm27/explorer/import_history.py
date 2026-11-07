@@ -86,13 +86,13 @@ def main():
             nxt = offsets[2 * (rec + 1)] if rec + 1 < count else len(dt)
             yield pid, start, nxt
 
-    # ---- pass 1: club id -> current club name (latest record per player) ----
+    # ---- pass 1: club id -> current club name + player's current club id ----
     print("mapping club IDs...", flush=True)
     club_votes = defaultdict(Counter)
+    player_club = {}
     for pid, start, nxt in blocks():
-        if pid not in meta:
-            continue
         best = None
+        best_senior = None
         for pos in range(start, nxt, REC):
             r = dt[pos:pos + REC]
             if len(r) < REC:
@@ -100,7 +100,16 @@ def main():
             y2 = struct.unpack_from("<H", r, 2)[0]
             if best is None or y2 > best[0]:
                 best = (y2, r)
-        if best:
+            if r[4] == 0x40 and r[5] > 0 and (best_senior is None or y2 > best_senior[0]):
+                best_senior = (y2, r)
+        chosen = best_senior or best
+        if chosen:
+            r = chosen[1]
+            cid = struct.unpack_from("<I", r, 11)[0]
+            cp = struct.unpack_from("<I", r, 19)[0]
+            if cid not in (0, NULL_ID):
+                player_club[pid] = (cid, None if cp in (0, NULL_ID) else cp)
+        if pid in meta and best:
             club, _, _ = meta[pid]
             cid = struct.unpack_from("<I", best[1], 11)[0]
             if club and cid not in (0, NULL_ID):
@@ -169,6 +178,10 @@ def main():
         )
     """)
     con.execute("CREATE INDEX idx_history_pid ON history(person_id, season_end, season_start)")
+    con.execute("CREATE TABLE clubs (club_id INTEGER PRIMARY KEY, name TEXT)")
+    con.execute("CREATE INDEX idx_clubs_name ON clubs(name)")
+    con.execute("CREATE TABLE competitions (comp_id INTEGER PRIMARY KEY, name TEXT)")
+    con.execute("CREATE TABLE player_club (person_id INTEGER PRIMARY KEY, club_id INTEGER, competition_id INTEGER)")
     ins = "INSERT INTO history VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 
     def name(mapping, cid, kind):
@@ -208,6 +221,11 @@ def main():
                     print(f"  {n:,} rows ({time.time()-t0:.0f}s)", flush=True)
     if batch:
         con.executemany(ins, batch)
+    print(f"  writing club/competition/player-club maps...", flush=True)
+    con.executemany("INSERT INTO clubs(club_id,name) VALUES(?,?)", club_map.items())
+    con.executemany("INSERT INTO competitions(comp_id,name) VALUES(?,?)", comp_map.items())
+    con.executemany("INSERT INTO player_club(person_id,club_id,competition_id) VALUES(?,?,?)",
+                    ((pid, c, cp) for pid, (c, cp) in player_club.items()))
     con.commit()
     con.execute("VACUUM")
     con.close()

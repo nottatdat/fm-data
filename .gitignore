@@ -15,3 +15,9 @@ fm27/work/*.json
 fm27/explorer/data/
 fm27/explorer/shots/
 fm27/history/
+
+# Large local asset archives / extracted packs
+/sortitoutsi_cutout_megapack_2027.00.rar
+/FMG Standard Logos 2026.00.zip
+fm27/explorer/assets/
+/sortitoutsi.net FM27 Data Update - Start in 2027.zip
