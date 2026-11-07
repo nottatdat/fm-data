@@ -352,6 +352,7 @@ function renderProfile(p, h) {
         <div class="pblock ppersonality"><h3>Personality</h3>${bars(PERSONALITY, p)}</div>
       </div>
       <div class="pblock pradar"><h3>Attribute profile</h3>${radarSvg(p)}</div>
+      <div class="pblock pitch"><h3>Positions</h3>${pitchSvg(pos)}<div class="pos-lists"><div><b>Natural</b> ${esc(p.posNat || p.posArr || p.pos || "—")}</div><div><b>Accomplished</b> ${esc(p.posArr || p.pos || "—")}</div></div></div>
     </div>
 
     <div class="pgrid">
@@ -361,10 +362,8 @@ function renderProfile(p, h) {
         ${attrColumn("Physical", ATTR_GROUPS.Physical, p)}
         ${pos.includes("GK") ? attrColumn("Goalkeeping", ATTR_GROUPS.Goalkeeping, p) : ""}
       </div></div>
-      <div class="pblock pitch"><h3>Positions</h3>${pitchSvg(pos)}<div class="pos-lists"><div><b>Natural</b> ${esc(p.posNat || p.posArr || p.pos || "—")}</div><div><b>Accomplished</b> ${esc(p.posArr || p.pos || "—")}</div></div></div>
+      <div class="pblock phistory">${renderHistory(h)}</div>
     </div>
-
-    <div class="pblock phistory">${renderHistory(h)}</div>
   </div>`;
 }
 

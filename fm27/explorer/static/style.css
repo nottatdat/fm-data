@@ -430,3 +430,21 @@ table.history tr.youth-row td { color: var(--muted); }
   .pradar { grid-column: auto; }
   .ppersonality .bars { grid-template-columns: 1fr; }
 }
+
+/* positions beside radar; career beside attributes */
+.phero { grid-template-columns: 250px minmax(0, 1fr) 290px 270px; }
+.pitchsvg { max-height: 280px; }
+.pgrid { grid-template-columns: 1.5fr 1fr; }
+.phistory { margin-top: 0; }
+@media (max-width: 1350px) {
+  .phero { grid-template-columns: 230px minmax(0,1fr) 260px 250px; }
+}
+@media (max-width: 1200px) {
+  .phero { grid-template-columns: 230px 1fr; }
+  .pradar, .phero .pitch { grid-column: auto; }
+  .pgrid { grid-template-columns: 1fr; }
+}
+@media (max-width: 800px) {
+  .phero, .pgrid { grid-template-columns: 1fr; }
+  .pradar, .phero .pitch { grid-column: auto; }
+}
