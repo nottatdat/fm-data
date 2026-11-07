@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM27 Profiles Explorer</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo">FM27</div>
+    <div class="brand-text">
+      <h1>Profiles Explorer</h1>
+      <p id="stats-line">Loading database…</p>
+    </div>
+  </div>
+  <div class="searchwrap">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.3 4.3-1.4 1.4-4.3-4.3A7.5 7.5 0 1 1 10.5 3Zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z"/></svg>
+    <input id="q" type="search" placeholder="Search by name, club, nation or division…" autocomplete="off" autofocus>
+    <span class="slash">/</span>
+  </div>
+  <div class="top-actions">
+    <select id="gender" title="Gender">
+      <option value="">All players</option>
+      <option value="Men">Men</option>
+      <option value="Women">Women</option>
+    </select>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="filters">
+    <div class="filter-head">
+      <h2>Filters</h2>
+      <button id="reset" class="linkbtn">Reset</button>
+    </div>
+
+    <label class="field">Nation
+      <input id="nat" list="nations" placeholder="Any nation" autocomplete="off">
+      <datalist id="nations"></datalist>
+    </label>
+    <label class="field">Club
+      <input id="club" list="clubs" placeholder="Any club" autocomplete="off">
+      <datalist id="clubs"></datalist>
+    </label>
+    <label class="field">Division
+      <input id="div" list="divisions" placeholder="Any division" autocomplete="off">
+      <datalist id="divisions"></datalist>
+    </label>
+    <label class="field">Position
+      <select id="pos"><option value="">Any position</option></select>
+    </label>
+
+    <div class="row2">
+      <label class="field">Age min<input id="min_age" type="number" min="0" max="60" placeholder="—"></label>
+      <label class="field">Age max<input id="max_age" type="number" min="0" max="60" placeholder="—"></label>
+    </div>
+    <div class="row2">
+      <label class="field">CA min<input id="min_ca" type="number" min="0" max="200" placeholder="—"></label>
+      <label class="field">CA max<input id="max_ca" type="number" min="0" max="200" placeholder="—"></label>
+    </div>
+    <label class="field">PA min<input id="min_pa" type="number" min="0" max="200" placeholder="—"></label>
+    <label class="field">Sort
+      <select id="sort">
+        <option value="ca">Current ability</option>
+        <option value="pa">Potential ability</option>
+        <option value="age">Age</option>
+        <option value="name">Name</option>
+        <option value="value">Market value</option>
+        <option value="wage">Wage</option>
+        <option value="height">Height</option>
+        <option value="reputation">World reputation</option>
+      </select>
+    </label>
+    <label class="field">Order
+      <select id="order">
+        <option value="desc">High → low</option>
+        <option value="asc">Low → high</option>
+      </select>
+    </label>
+  </aside>
+
+  <section class="results">
+    <div class="result-head">
+      <div id="summary">Loading…</div>
+      <div class="pager" id="pager-top"></div>
+    </div>
+    <div id="grid" class="grid"></div>
+    <div id="empty" class="empty hidden">No players match these filters.</div>
+    <div class="pager bottom" id="pager-bottom"></div>
+  </section>
+</main>
+
+<div id="drawer" class="drawer hidden" aria-hidden="true">
+  <div class="backdrop" data-close></div>
+  <aside class="panel" role="dialog" aria-modal="true" aria-label="Player profile">
+    <button class="close" data-close aria-label="Close">×</button>
+    <div id="profile"></div>
+  </aside>
+</div>
+
+<footer class="foot">
+  FM27 database · 516,038 players · photos fetched live from Wikipedia
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

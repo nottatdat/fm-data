@@ -16,6 +16,7 @@ stripped and `meta.manager` was cleared). A sanitized raw dump is kept locally a
 | `fm27_players.csv` | 516,038 | 94 | every player, CA/PA + 52 attributes |
 | `fm27_staff.csv` | 179,287 | 53 | every staff member incl. 23 attributes |
 | `fm27_people.csv` | 695,325 | 123 | players + staff, union of both column sets, `kind` column |
+| `fm27_player_history.csv` | 5,718,899 | 8 | season-by-season history: season, club, competition, apps, goals, type |
 
 Encoding UTF-8 with BOM (Excel-friendly), comma-delimited.
 
@@ -41,6 +42,17 @@ Potential`, `Judging Staff Ability`, `Negotiating`, `Tactical Knowledge`,
 `Physiotherapy`, `Sports Science`, `Data Analysis`, `Working With Youngsters`,
 `Goalkeeping Distribution`, `Goalkeeping Handling`, `Goalkeeping Shot Stopping`,
 `Adaptability`).
+
+## Career history
+
+`fm27_player_history.csv` is decoded from FM27's `pl_hist_*` files: one row per
+player-season with **season, club, competition, appearances, goals, senior/youth**
+and loan parent club. Club/competition IDs were mapped to names using current
+clubs/divisions; old clubs/competitions without current players show as
+`Unknown … #ID`. Assists and match-level stats are not stored in these files.
+
+For the interactive view (and per-player history CSV downloads), run the
+`../explorer/` app.
 
 ## Validation (FM27-native database values)
 
@@ -69,6 +81,11 @@ numbers (e.g. Haaland 184/195, Mbappé 195/197) — see `../csv/`.
    python3 ../make_final.py
    ```
    This removes the manager rows, writes `fmsuperscout_dump_515k_sanitized.json`,
-   and regenerates these three CSVs.
+   and regenerates the three player/staff CSVs.
+6. Build and export career history:
+   ```bash
+   python3 ../explorer/import_history.py
+   python3 ../explorer/export_history.py fm27_player_history.csv
+   ```
 
 Full procedure and troubleshooting: `../GUIDE_FM27.md`.

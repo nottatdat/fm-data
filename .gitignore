@@ -10,3 +10,8 @@ fm27/work/*.json
 
 # OS
 .DS_Store
+
+# Explorer build artifacts (rebuilt by import_db.py / import_history.py)
+fm27/explorer/data/
+fm27/explorer/shots/
+fm27/history/
