@@ -31,3 +31,8 @@ matches/
 
 # Extracted data is never committed (regenerate with the guides)
 *.csv
+
+# FM24 local data (decompressed saves, fixtures, baselines, extraction metadata)
+fm24/work/
+fm24/csv/*.json
+.gstack/

@@ -2,7 +2,9 @@
 
 `fm26/tools/FMSuperScout.dll` and `fm27/tools/FMSuperScout.Scanner.exe` are
 unmodified builds of **FMSuperScout** by mavarobli
-(https://github.com/mavarobli/FMSuperScout), redistributed under its MIT licence:
+(https://github.com/mavarobli/FMSuperScout), redistributed under its MIT licence.
+`fm24/save/nations_en.json` uses the nation UIDs from FMSuperScout's
+`tools/nation-ids.json` (names translated to English) under the same licence:
 
 ```text
 MIT License

@@ -1,7 +1,8 @@
 # Football Manager data extraction
 
 Tools and guides for extracting player/staff data from Football Manager 26 and
-Football Manager 27, plus a local profiles explorer.
+Football Manager 27, plus a local profiles explorer. **Football Manager 24 is supported
+on macOS only**, from save files (see [`fm24/`](fm24/)).
 
 **This repository contains no game data.** The extracted CSVs are gitignored;
 regenerate them from your own copy of the game with the guides below. The
@@ -11,7 +12,8 @@ regenerate them from your own copy of the game with the guides below. The
 |---|---|
 | [`fm26/`](fm26/) | **FM26**: capture guide, offline DB parsers, BepInEx plugin, CSV schema docs |
 | [`fm27/`](fm27/) | **FM27**: capture guide, offline DB parsers, scanner, `make_final.py` (dump → CSVs), CSV schema docs |
-| [`fm27/explorer/`](fm27/explorer/) | **Profiles Explorer**: local web app — search/filter players, local face/logo packs, career history |
+| [`fm24/`](fm24/) | **FM24, macOS only**: save-file extractor (`.fm` → CSV), explorer support (`--game fm24`), tests, reverse-engineering notes |
+| [`fm27/explorer/`](fm27/explorer/) | **Profiles Explorer**: local web app — search/filter players, local face/logo packs, career history; `--game fm24` serves an FM24 career |
 | [`tools/`](tools/) | Shared scripts: `fmdb.py` (decompress FM `.dat`), `fmsuperscout_to_csv.py` (dump→CSV), `extract_frames.py` (`.fmf` frames) |
 | [`docs/reports/`](docs/reports/) | Research reports from the native DB reverse-engineering and tool survey |
 
@@ -44,6 +46,23 @@ season-by-season history (club, competition, appearances, goals). It needs
 generated locally; the SQLite databases are built from them on first run
 (~1 min) and are gitignored.
 See [`fm27/explorer/README.md`](fm27/explorer/README.md).
+
+## FM24 on macOS (save files)
+
+FMSuperScout does not exist for FM24 and macOS blocks reading the game's memory, so FM24
+is read **offline from the career save file** instead: press ⌘S in FM, then
+
+```bash
+python3 -m pip install zstandard numpy
+python3 fm24/save/parse_save.py                      # newest career save -> fm24/csv/
+cd fm27/explorer && python3 server.py --game fm24    # http://127.0.0.1:8770
+```
+
+Data is "as of your last save"; the explorer offers **Load it** when a newer save appears.
+Decoded and checked against in-game screens: identity, nationality, club (incl. loans and
+B teams), positions, 47 attributes, height, contract end and wage. CA/PA, hidden attributes,
+personality and the stored base valuation are exported as unverified. Tested with FM24
+24.4.2 (Epic) on Apple Silicon. Details: [`fm24/GUIDE.md`](fm24/GUIDE.md).
 
 ## How the data was pulled
 

@@ -1,6 +1,10 @@
 /* FM27 Profiles Explorer — frontend */
 const $ = (s) => document.querySelector(s);
 const PER = 36;
+// Which FM27-only features exist. A save-backed game (server.py --game) injects
+// window.FM_GAME = {game, label, panels} before this script; FM27 has them all.
+const PANELS = (window.FM_GAME && window.FM_GAME.panels) || { history: true, form: true, images: true };
+const img = (html) => (PANELS.images ? html : "");
 
 const state = {
   q: "", gender: "", nat: "", club: "", div: "", pos: "",
@@ -177,17 +181,17 @@ function card(p) {
   el.dataset.id = p.id;
   const chips = String(p.pos || "").split(",").map((s) => s.trim()).filter(Boolean)
     .slice(0, 5).map((s) => `<span class="chip">${esc(s)}</span>`).join("");
-  const flag = p.natId ? `<img class="flag" src="/api/nation-logo/${p.natId}" alt="" loading="lazy" onerror="this.remove()">` : "";
+  const flag = p.natId ? img(`<img class="flag" src="/api/nation-logo/${p.natId}" alt="" loading="lazy" onerror="this.remove()">`) : "";
   el.innerHTML = `
     <div class="photo">
       <div class="fallback">${esc(initials(p.name))}</div>
-      <img class="face" src="/api/face/${p.id}" alt="" loading="lazy" decoding="async" onerror="this.remove()">
+      ${img(`<img class="face" src="/api/face/${p.id}" alt="" loading="lazy" decoding="async" onerror="this.remove()">`)}
     </div>
     <div class="card-body">
       <div class="card-top"><h3>${esc(p.name)}</h3><span class="age">${p.age ?? "—"}</span></div>
       <div class="meta">${flag}${esc(p.nat || "—")}</div>
       <div class="club">
-        <img class="club-logo" src="/api/player-club-logo/${p.id}" alt="" loading="lazy" onerror="this.remove()">
+        ${img(`<img class="club-logo" src="/api/player-club-logo/${p.id}" alt="" loading="lazy" onerror="this.remove()">`)}
         <span class="club-name">${esc(p.club_display || p.club || "Free agent")}</span>
         ${p.div ? `<span class="div">· ${esc(p.div)}</span>` : ""}
       </div>
@@ -232,8 +236,8 @@ async function openPlayer(id) {
   try {
     const [p, h, f] = await Promise.all([
       api(`/api/player/${encodeURIComponent(id)}`),
-      api(`/api/history/${encodeURIComponent(id)}`),
-      api(`/api/form/${encodeURIComponent(id)}`).catch(() => null),
+      PANELS.history ? api(`/api/history/${encodeURIComponent(id)}`) : null,
+      PANELS.form ? api(`/api/form/${encodeURIComponent(id)}`).catch(() => null) : null,
     ]);
     profile.innerHTML = renderProfile(p, h, f);
   } catch (e) {
@@ -280,11 +284,11 @@ function clubColors(name) {
   const hue = h % 360;
   return { c1: `hsl(${hue} 52% 30%)`, c2: `hsl(${(hue + 50) % 360} 55% 12%)` };
 }
-function fact(k, v) { return `<div class="fact"><span>${esc(k)}</span><b>${esc(v ?? "—")}</b></div>`; }
+function fact(k, v, key) { return `<div class="fact"${key ? ` data-k="${esc(key)}"` : ""}><span>${esc(k)}</span><b>${esc(v ?? "—")}</b></div>`; }
 function attrRow(k, p) {
   const raw = p[k]; const v = Number(raw);
   const has = raw !== null && raw !== "" && Number.isFinite(v);
-  return `<div class="attr-row"><span class="an" title="${esc(label(k))}">${esc(label(k))}</span><span class="av">${has ? v : "—"}</span><span class="ab"><i class="${attrClass(has ? v : 0)}" style="width:${has ? Math.min(100, v * 5) : 0}%"></i></span></div>`;
+  return `<div class="attr-row"><span class="an" data-k="${esc(k)}" title="${esc(label(k))}">${esc(label(k))}</span><span class="av">${has ? v : "—"}</span><span class="ab"><i class="${attrClass(has ? v : 0)}" style="width:${has ? Math.min(100, v * 5) : 0}%"></i></span></div>`;
 }
 function attrColumn(title, keys, p) {
   return `<div class="attr-col"><h4>${esc(title)}</h4>${keys.map((k) => attrRow(k, p)).join("")}</div>`;
@@ -379,9 +383,9 @@ function renderForm(f) {
 function renderProfile(p, h, f) {
   const pos = positionsOf(p);
   const colors = clubColors(p.club_display || p.club);
-  const flag = p.natId ? `<img class="flag" src="/api/nation-logo/${p.natId}" alt="" onerror="this.remove()">` : "";
-  const face = `<div class="pfallback">${esc(initials(p.name))}</div><img class="pfaceimg" src="/api/face/${p.id}" alt="" decoding="async" onerror="this.remove()">`;
-  const clubLogo = `<img class="club-logo" src="/api/player-club-logo/${p.id}" alt="" onerror="this.remove()">`;
+  const flag = p.natId ? img(`<img class="flag" src="/api/nation-logo/${p.natId}" alt="" onerror="this.remove()">`) : "";
+  const face = `<div class="pfallback">${esc(initials(p.name))}</div>` + img(`<img class="pfaceimg" src="/api/face/${p.id}" alt="" decoding="async" onerror="this.remove()">`);
+  const clubLogo = img(`<img class="club-logo" src="/api/player-club-logo/${p.id}" alt="" onerror="this.remove()">`);
   const chips = pos.map((x) => `<span class="chip">${esc(x)}</span>`).join("");
   return `
   <div class="ppage">
@@ -399,7 +403,7 @@ function renderProfile(p, h, f) {
           ${fact("Age", p.age ?? "—")}${fact("Date of birth", p.dob || "—")}
           ${fact("Height", p.height ? p.height + " cm" : "—")}${fact("Preferred foot", p.foot || "—")}
           ${fact("Contract expires", p.expires || "—")}${fact("Wage", fmtWage(p.wage))}
-          ${fact("Market value", fmtMoney(p.value))}${fact("Asking price", fmtMoney(p.askingPrice))}
+          ${fact("Market value", fmtMoney(p.value), "value")}${fact("Asking price", fmtMoney(p.askingPrice))}
           ${fact("World reputation", fmtInt(p.worldRep))}${fact("Club reputation", fmtInt(p.clubRep))}
         </div>
         <div class="pblock ppersonality"><h3>Personality</h3>${bars(PERSONALITY, p)}</div>
@@ -415,7 +419,7 @@ function renderProfile(p, h, f) {
         ${attrColumn("Physical", ATTR_GROUPS.Physical, p)}
         ${pos.includes("GK") ? attrColumn("Goalkeeping", ATTR_GROUPS.Goalkeeping, p) : ""}
       </div></div>
-      <div class="pblock phistory">${renderHistory(h)}</div>
+      ${PANELS.history ? `<div class="pblock phistory">${renderHistory(h)}</div>` : ""}
     </div>
     ${renderForm(f)}
   </div>`;
