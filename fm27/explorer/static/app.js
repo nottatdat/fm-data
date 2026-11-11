@@ -230,11 +230,12 @@ async function openPlayer(id) {
   profile.innerHTML = '<div class="loading">Loading profile…</div>';
   drawer.querySelector(".panel").scrollTop = 0;
   try {
-    const [p, h] = await Promise.all([
+    const [p, h, f] = await Promise.all([
       api(`/api/player/${encodeURIComponent(id)}`),
       api(`/api/history/${encodeURIComponent(id)}`),
+      api(`/api/form/${encodeURIComponent(id)}`).catch(() => null),
     ]);
-    profile.innerHTML = renderProfile(p, h);
+    profile.innerHTML = renderProfile(p, h, f);
   } catch (e) {
     profile.innerHTML = `<div class="loading">Could not load player: ${esc(e.message)}</div>`;
   }
@@ -323,7 +324,59 @@ function pitchSvg(active) {
     ${dots}
   </svg>`;
 }
-function renderProfile(p, h) {
+
+function renderForm(f) {
+  if (!f || !f.linked) return "";
+  const ms = f.matches || [];
+  const s = f.summary || {};
+  if (!ms.length) {
+    return `<div class="pblock pform">
+      <div class="form-head"><h3>Form</h3><span class="form-sub">Sofascore</span></div>
+      <div class="empty-history">No finished Sofascore matches found for this player.</div>
+    </div>`;
+  }
+  const showXg = !!f.xg_available;
+  const showXa = !!f.xa_available;
+  const fmt2 = (v) => v == null ? "—" : Number(v).toFixed(2);
+  const fmtRating = (v) => v == null ? "—" : Number(v).toFixed(1);
+  const strip = (f.form || []).map((r) => `<span class="fres ${r}" title="${r}">${r}</span>`).join("");
+  const rows = ms.map((m) => {
+    const ann = [
+      m.goals ? `<span class="ann goal" title="Goals">G${m.goals}</span>` : "",
+      m.assists ? `<span class="ann assist" title="Assists">A${m.assists}</span>` : "",
+    ].join("");
+    const xg = showXg ? `<td class="num xg">${fmt2(m.xg)}</td>` : "";
+    const xa = showXa ? `<td class="num xa">${fmt2(m.xa)}</td>` : "";
+    return `<tr>
+      <td class="form-date">${esc(m.date || "")}</td>
+      <td class="form-comp">${esc(m.league || "")}</td>
+      <td class="form-opp"><span class="ha">${m.home ? "vs" : "@"}</span> ${esc(m.opponent || "—")}</td>
+      <td class="num form-score">${m.team_score}–${m.opp_score}</td>
+      <td><span class="fres ${m.result}">${m.result}</span></td>
+      <td class="num">${fmtRating(m.rating)}</td>
+      <td class="num">${m.minutes != null ? Math.round(m.minutes) + "'" : "—"}</td>
+      <td class="form-ann">${ann || '<span class="muted">—</span>'}</td>
+      ${xg}${xa}
+    </tr>`;
+  }).join("");
+  const rating = s.rating_avg == null ? "—" : Number(s.rating_avg).toFixed(2);
+  const xgSum = showXg && s.xg != null ? ` · xG ${Number(s.xg).toFixed(2)}` : "";
+  const xaSum = showXa && s.xa != null ? ` · xA ${Number(s.xa).toFixed(2)}` : "";
+  const xgHead = showXg ? `<th class="num" title="Expected goals">xG</th>` : "";
+  const xaHead = showXa ? `<th class="num" title="Expected assists">xA</th>` : "";
+  return `<div class="pblock pform">
+    <div class="form-head"><h3>Form</h3>
+      <span class="form-sub">Last ${s.matches} · ${s.minutes} min · ${s.goals}G ${s.assists}A · avg ${rating}${xgSum}${xaSum}</span>
+      <span class="form-strip" title="Most recent first">${strip}</span>
+    </div>
+    <div class="table-wrap"><table class="form-table">
+      <thead><tr><th>Date</th><th>Comp</th><th>Opponent</th><th class="num">Score</th><th>Res</th><th class="num">Rating</th><th class="num">Min</th><th>G/A</th>${xgHead}${xaHead}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function renderProfile(p, h, f) {
   const pos = positionsOf(p);
   const colors = clubColors(p.club_display || p.club);
   const flag = p.natId ? `<img class="flag" src="/api/nation-logo/${p.natId}" alt="" onerror="this.remove()">` : "";
@@ -364,6 +417,7 @@ function renderProfile(p, h) {
       </div></div>
       <div class="pblock phistory">${renderHistory(h)}</div>
     </div>
+    ${renderForm(f)}
   </div>`;
 }
 

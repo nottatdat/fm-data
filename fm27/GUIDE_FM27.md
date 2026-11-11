@@ -26,7 +26,7 @@ The FM27 `.dat` files use the same zstd container as FM26.
 GAME="/mnt/data/SteamLibrary/steamapps/common/Football Manager 27"
 DB="$GAME/shared/data/database/db/2700/2700_fm"     # 2700 = FM27.0 database
 
-cd ~/src/football_manager
+cd ~/src/fm-data
 python3 tools/fmdb.py "$DB/people_db.dat"       fm27/work/people_db.raw
 python3 tools/fmdb.py "$DB/basic_people_db.dat" fm27/work/basic_people_db.raw
 cp "$DB/summary.dat" fm27/work/summary.raw

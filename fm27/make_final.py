@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Sanitize the FM27 515k dump (remove the human manager) and write CSVs."""
 import json, os, sys
-ROOT = "/home/dat/src/football_manager"
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import fmsuperscout_to_csv as conv
 

@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 *.py[cod]
+.venv/
 
 # Logs
 *.log
@@ -21,3 +22,9 @@ fm27/history/
 /FMG Standard Logos 2026.00.zip
 fm27/explorer/assets/
 /sortitoutsi.net FM27 Data Update - Start in 2027.zip
+
+# Optional external match data for the explorer's Form panel (not part of this repo)
+matches/
+
+# Claude Code personal settings
+.claude/settings.local.json

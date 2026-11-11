@@ -457,3 +457,39 @@ table.history tr.youth-row td { color: var(--muted); }
 .pclub { position: static; padding: 5px 12px 0; z-index: 3; }
 .pface { position: relative; flex: 1; min-height: 0; inset: auto; display: flex; align-items: flex-end; justify-content: center; z-index: 2; }
 .pfaceimg { width: 100%; height: auto; max-height: 100%; object-fit: contain; object-position: bottom center; }
+
+/* ---------------- Sofascore form ---------------- */
+.pform { margin-top: 14px; }
+.form-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.form-head h3 { margin: 0; }
+.form-sub { color: var(--muted); font-size: 12px; }
+.form-strip { margin-left: auto; display: flex; gap: 3px; }
+.fres {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; line-height: 1;
+}
+.fres.W { background: rgba(52,211,153,.18); color: #34d399; }
+.fres.D { background: rgba(148,163,184,.18); color: #cbd5e1; }
+.fres.L { background: rgba(248,113,113,.16); color: #f87171; }
+table.form-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.form-table th {
+  text-align: left; font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); padding: 5px 8px; border-bottom: 1px solid rgba(39,49,88,.8);
+  white-space: nowrap;
+}
+table.form-table td { padding: 5px 8px; border-bottom: 1px solid rgba(39,49,88,.55); vertical-align: middle; }
+table.form-table tr:last-child td { border-bottom: 0; }
+table.form-table tr:hover td { background: rgba(139,92,246,.06); }
+table.form-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.form-date { white-space: nowrap; color: #cfd8f5; }
+.form-comp { color: var(--muted); white-space: nowrap; }
+.form-opp { white-space: nowrap; }
+.form-opp .ha { color: var(--muted); font-size: 10px; }
+.form-score { font-weight: 700; white-space: nowrap; }
+.form-ann { white-space: nowrap; }
+.ann { display: inline-block; margin-right: 4px; font-size: 11px; padding: 1px 4px; border-radius: 4px; }
+.ann.goal { background: rgba(52,211,153,.14); color: #6ee7b7; }
+.ann.assist { background: rgba(34,211,238,.12); color: #67e8f9; }
+.muted { color: var(--muted); }
+@media (max-width: 800px) { .form-strip { margin-left: 0; } }

@@ -29,7 +29,16 @@ import clubnames
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 DB = os.path.join(HERE, "data", "fm27.db")
 HIST_DB = os.path.join(HERE, "data", "history.db")
+# Optional Sofascore data for the Form panel (kept outside this repo). Point
+# FM_MATCH_DATA at a directory holding links.db + matches.db to enable it.
+MATCH_DATA = os.environ.get("FM_MATCH_DATA", os.path.join(ROOT, "matches", "data"))
+FORM_DB = os.path.join(MATCH_DATA, "links.db")
+MATCH_DB = os.path.join(MATCH_DATA, "matches.db")
 CSV = os.path.join(ROOT, "fm27", "csv_515k", "fm27_players.csv")
+LEAGUE_NAMES = {
+    "PL": "Premier League", "PD": "La Liga", "SA": "Serie A",
+    "BL1": "Bundesliga", "FL1": "Ligue 1",
+}
 STATIC = os.path.join(HERE, "static")
 
 ASSETS = os.path.join(HERE, "assets")
@@ -327,6 +336,112 @@ def history_csv(pid):
 
 
 # --------------------------------------------------------------------------
+# Sofascore form (matches/data/links.db + matches.db)
+# --------------------------------------------------------------------------
+def get_form(pid, limit=10):
+    empty = {"player_id": pid, "linked": False, "matches": [],
+             "summary": {"matches": 0, "minutes": 0, "goals": 0,
+                         "assists": 0, "xg": None, "xa": None,
+                         "rating_avg": None}, "form": []}
+    if not (os.path.exists(FORM_DB) and os.path.exists(MATCH_DB)):
+        return empty
+    try:
+        limit = max(1, min(50, int(limit)))
+    except (TypeError, ValueError):
+        limit = 10
+
+    lcon = sqlite3.connect(FORM_DB, timeout=30)
+    lcon.row_factory = sqlite3.Row
+    try:
+        link = lcon.execute(
+            "SELECT * FROM player_links WHERE fm27_id=? "
+            "ORDER BY confidence DESC, sofascore_player_id LIMIT 1", (pid,)
+        ).fetchone()
+    finally:
+        lcon.close()
+    if not link:
+        return empty
+
+    sid = link["sofascore_player_id"]
+    mcon = sqlite3.connect(MATCH_DB, timeout=30)
+    mcon.row_factory = sqlite3.Row
+    try:
+        pcols = {r[1] for r in mcon.execute("PRAGMA table_info(player_match_stats)")}
+        xg = 'pms."expectedGoals"' if "expectedGoals" in pcols else "NULL"
+        xa = 'pms."expectedAssists"' if "expectedAssists" in pcols else "NULL"
+        rows = [dict(r) for r in mcon.execute(f"""
+            SELECT m.match_id, m.match_date, m.league_code, m.season_label, m.round,
+                   m.home_team_id, m.home_team, m.away_team_id, m.away_team,
+                   m.home_score, m.away_score,
+                   l.team_id, l.side, l.is_starter, l.minutes_played,
+                   l.rating, l.goals, l.assists,
+                   {xg} AS xg, {xa} AS xa
+            FROM lineups l
+            JOIN matches m ON m.match_id = l.match_id
+            LEFT JOIN player_match_stats pms
+              ON pms.match_id = l.match_id AND pms.player_id = l.player_id
+            WHERE l.player_id = ? AND m.status = 'finished'
+              AND COALESCE(l.minutes_played, 0) > 0
+            ORDER BY m.match_date DESC, m.match_id DESC
+            LIMIT ?
+        """, (sid, limit))]
+    finally:
+        mcon.close()
+
+    matches = []
+    for r in rows:
+        is_home = int(r["team_id"]) == int(r["home_team_id"])
+        team_score = r["home_score"] if is_home else r["away_score"]
+        opp_score = r["away_score"] if is_home else r["home_score"]
+        if team_score is None or opp_score is None:
+            continue
+        result = "W" if team_score > opp_score else "D" if team_score == opp_score else "L"
+        matches.append({
+            "match_id": r["match_id"],
+            "date": r["match_date"],
+            "season": r["season_label"],
+            "league": LEAGUE_NAMES.get(r["league_code"], r["league_code"]),
+            "round": r["round"],
+            "opponent": r["away_team"] if is_home else r["home_team"],
+            "home": is_home,
+            "team_score": team_score,
+            "opp_score": opp_score,
+            "result": result,
+            "rating": r["rating"],
+            "minutes": r["minutes_played"],
+            "goals": r["goals"] or 0,
+            "assists": r["assists"] or 0,
+            "xg": round(float(r["xg"]), 2) if r["xg"] is not None else None,
+            "xa": round(float(r["xa"]), 2) if r["xa"] is not None else None,
+        })
+
+    ratings = [m["rating"] for m in matches if m["rating"] is not None]
+    summary = {
+        "matches": len(matches),
+        "minutes": int(sum(m["minutes"] or 0 for m in matches)),
+        "goals": int(sum(m["goals"] for m in matches)),
+        "assists": int(sum(m["assists"] for m in matches)),
+        "xg": round(sum(m["xg"] for m in matches if m["xg"] is not None), 2)
+              if any(m["xg"] is not None for m in matches) else None,
+        "xa": round(sum(m["xa"] for m in matches if m["xa"] is not None), 2)
+              if any(m["xa"] is not None for m in matches) else None,
+        "rating_avg": round(sum(ratings) / len(ratings), 2) if ratings else None,
+    }
+    return {
+        "player_id": pid,
+        "linked": True,
+        "sofascore_id": sid,
+        "sofascore_name": link["sofascore_name"],
+        "confidence": link["confidence"],
+        "matches": matches,
+        "summary": summary,
+        "form": [m["result"] for m in matches[:5]],
+        "xg_available": any(m["xg"] is not None for m in matches),
+        "xa_available": any(m["xa"] is not None for m in matches),
+    }
+
+
+# --------------------------------------------------------------------------
 # HTTP
 # --------------------------------------------------------------------------
 MIME = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
@@ -410,6 +525,9 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_csv(history_csv(pid), f"player_{pid}_history.csv")
                 else:
                     self.send_json(get_history(rest))
+            elif path.startswith("/api/form/"):
+                pid = path.rsplit("/", 1)[-1]
+                self.send_json(get_form(pid, params.get("limit", 10)))
             elif path.startswith("/api/player/"):
                 pid = path.rsplit("/", 1)[-1]
                 con = connect()

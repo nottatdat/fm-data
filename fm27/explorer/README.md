@@ -8,6 +8,7 @@ A local, dependency-free web app to browse the **516,038-player FM27 database** 
 - **career / league history**: season, club, competition, appearances, goals,
   senior/youth, loan parent club
 - per-player history CSV download and a full-history CSV exporter
+- **Sofascore form panel** — last matches with ratings, goals/assists and xG/xA when available
 
 Built with Python's standard library only (`http.server`, `sqlite3`, `urllib`).
 No Node/npm needed.
@@ -42,6 +43,7 @@ Clicking a player opens a full-screen, FM-style dashboard:
 
 **Hero row** — portrait · facts + personality · attribute radar · position pitch
 **Second row** — attribute columns · career history
+**Full-width form strip** — last 10 Sofascore matches with ratings, G/A annotations and xG/xA
 
 - hero portrait at its native 250×250 resolution (no upscaling blur), on a
   club-colour gradient, with the name / nation / club at the top-left and the
@@ -53,8 +55,15 @@ Clicking a player opens a full-screen, FM-style dashboard:
 - Technical / Mental / Physical attribute columns with coloured bars
 - full **career history** with club and competition logos + CSV download
 
-Morale, condition, training, form and per-match stats are not present in the
-exported database; the profile shows everything the data has.
+Morale, condition and training are not present in the exported FM database.
+The Form panel is optional and its data is not part of this repo. It reads a
+Sofascore match DB (`matches.db`) and an FM↔Sofascore link DB (`links.db`) from
+the directory in `FM_MATCH_DATA` (default `<repo>/matches/data/`). Without
+them the explorer works normally and the Form panel stays empty.
+
+```bash
+FM_MATCH_DATA=/path/to/match/data python3 server.py --port 8770
+```
 
 ## Club names and search
 
@@ -150,6 +159,7 @@ logos © their authors via FMG.
 | `GET /api/player/<id>` | full player record (all 94 columns + attributes) |
 | `GET /api/history/<id>` | career history records + totals |
 | `GET /api/history/<id>.csv` | history CSV download |
+| `GET /api/form/<id>` | last Sofascore matches + ratings + G/A + xG/xA |
 | `GET /api/face/<id>` | player face from the cutout pack |
 | `GET /api/player-club-logo/<id>` | current club logo |
 | `GET /api/club-logo/<id>` | club logo by club ID |

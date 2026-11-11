@@ -1,7 +1,8 @@
 # Football Manager data extraction
 
 Extracted player/staff data from Football Manager 26 and Football Manager 27,
-kept in separate directories, plus a local profiles explorer.
+kept in separate directories, the tools and guides used to pull it out of the
+game, and a local profiles explorer.
 
 | Directory | What it contains |
 |---|---|
@@ -38,6 +39,23 @@ python3 server.py --port 8770     # or ./run.sh
 season-by-season history (club, competition, appearances, goals). The SQLite
 databases are built on first run (~1 min) and are gitignored.
 See [`fm27/explorer/README.md`](fm27/explorer/README.md).
+
+## How the data was pulled
+
+Two routes, documented step by step in the guides below:
+
+1. **Live (complete data, produced the committed CSVs).** Read the loaded save
+   from the running game's memory with FMSuperScout — the BepInEx plugin for
+   FM26 (`fm26/tools/FMSuperScout.dll`) and the FMSuperScout Scanner for FM27
+   (`fm27/tools/FMSuperScout.Scanner.exe`) — then convert the JSON dump with
+   `tools/fmsuperscout_to_csv.py`.
+2. **Offline (partial: names, DOB, nation, CA/age/position).** Decompress the
+   shipped database with `tools/fmdb.py` and decode it with
+   `fm2*/offline/parse_people.py` / `parse_summary.py` (field map in
+   `field_dict.csv`). Used to cross-check the live dump.
+
+The reverse-engineering notes and tool survey are in
+[`docs/reports/`](docs/reports/). The step-by-step guides are below.
 
 ## Reproduce
 
