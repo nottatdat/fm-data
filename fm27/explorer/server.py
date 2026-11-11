@@ -13,6 +13,7 @@ The SQLite database is built automatically on first run (~25 s, ~230 MB).
 """
 import argparse
 import csv
+import importlib
 import io
 import json
 import os
@@ -35,6 +36,21 @@ MATCH_DATA = os.environ.get("FM_MATCH_DATA", os.path.join(ROOT, "matches", "data
 FORM_DB = os.path.join(MATCH_DATA, "links.db")
 MATCH_DB = os.path.join(MATCH_DATA, "matches.db")
 CSV = os.path.join(ROOT, "fm27", "csv_515k", "fm27_players.csv")
+# Datasets the explorer can serve, chosen once at startup with --game (see configure()).
+# FM27 is the default and keeps the paths above unchanged. A save-backed game names its
+# database file and the module providing its SaveDataset (provenance, reload); its
+# `panels` say which FM27-only features (career history, Sofascore form, face/logo packs)
+# exist. Adding a game = one entry here plus its own package.
+GAMES = {
+    "fm27": {"label": "FM27", "panels": {"history": True, "form": True, "images": True}},
+    "fm24": {"label": "FM24", "db": "fm24.db", "dataset": "fm24.save.live",
+             "panels": {"history": False, "form": False, "images": False},
+             "missing": "Save in FM24 (Cmd+S), then run: python3 fm24/save/parse_save.py"},
+}
+GAME = "fm27"
+PANELS = GAMES["fm27"]["panels"]
+SAVE_DATASET = None        # SaveDataset of a save-backed game
+INDEX_SCRIPT_TAG = b'<script src="/static/app.js">'   # save-backed games inject before it
 LEAGUE_NAMES = {
     "PL": "Premier League", "PD": "La Liga", "SA": "Serie A",
     "BL1": "Bundesliga", "FL1": "Ligue 1",
@@ -74,8 +90,43 @@ def _build_club_index():
     CLUB_INDEX = clubnames.ClubIndex([(r[0], r[1]) for r in rows])
 
 
+def configure(game):
+    """Point the module-level paths at the chosen game's dataset (called once at startup)."""
+    global GAME, PANELS, DB, CSV, SAVE_DATASET
+    cfg = GAMES[game]
+    GAME, PANELS = game, cfg["panels"]
+    if "dataset" not in cfg:
+        return
+    if ROOT not in sys.path:
+        sys.path.insert(0, ROOT)
+    SAVE_DATASET = importlib.import_module(cfg["dataset"]).SaveDataset()
+    DB = os.path.join(HERE, "data", cfg["db"])
+    CSV = SAVE_DATASET.csv_path
+    if not os.path.exists(CSV):
+        sys.exit(f"no {cfg['label']} data yet ({CSV}).\n{cfg['missing']}")
+    with open(os.path.join(STATIC, "index.html"), "rb") as fh:
+        if INDEX_SCRIPT_TAG not in fh.read():
+            sys.exit("static/index.html no longer loads app.js the expected way; "
+                     "update INDEX_SCRIPT_TAG in server.py")
+
+
+def game_config_script():
+    """<script> tags a save-backed game adds to index.html: its settings for app.js
+    (window.FM_GAME) and the save banner (static/savemode.js)."""
+    cfg = {"game": GAME, "label": GAMES[GAME]["label"], "panels": PANELS}
+    return (b"<script>window.FM_GAME = " + json.dumps(cfg).encode() + b";</script>\n"
+            b'<script src="/static/savemode.js"></script>\n')
+
+
 def ensure_db():
     sys.path.insert(0, HERE)
+    if SAVE_DATASET:
+        import import_db
+        if not os.path.exists(DB) or os.path.getmtime(DB) < os.path.getmtime(CSV):
+            print(f"building {GAME.upper()} player database...", flush=True)
+            import_db.build(DB, CSV, force=True)
+        _build_club_index()
+        return
     if not os.path.exists(DB):
         import import_db
         print("building player database (first run)...", flush=True)
@@ -258,6 +309,8 @@ def get_filters():
 # --------------------------------------------------------------------------
 def player_club_id(pid):
     """Club id for a player, from history (preferred) or the clubs name map."""
+    if not PANELS["images"]:
+        return None              # FM27 history must not label another game's players
     if os.path.exists(HIST_DB):
         con = sqlite3.connect(HIST_DB, timeout=30)
         try:
@@ -292,7 +345,7 @@ def get_history(pid):
     empty = {"person_id": pid,
              "totals": {"apps": 0, "goals": 0, "clubs": 0, "seasons": 0},
              "records": []}
-    if not os.path.exists(HIST_DB):
+    if not PANELS["history"] or not os.path.exists(HIST_DB):
         return empty
     con = sqlite3.connect(HIST_DB, timeout=30)
     con.row_factory = sqlite3.Row
@@ -343,7 +396,7 @@ def get_form(pid, limit=10):
              "summary": {"matches": 0, "minutes": 0, "goals": 0,
                          "assists": 0, "xg": None, "xa": None,
                          "rating_avg": None}, "form": []}
-    if not (os.path.exists(FORM_DB) and os.path.exists(MATCH_DB)):
+    if not PANELS["form"] or not (os.path.exists(FORM_DB) and os.path.exists(MATCH_DB)):
         return empty
     try:
         limit = max(1, min(50, int(limit)))
@@ -476,6 +529,8 @@ class Handler(BaseHTTPRequestHandler):
         ext = os.path.splitext(path)[1].lower()
         with open(path, "rb") as fh:
             body = fh.read()
+        if SAVE_DATASET and filename == "index.html":
+            body = body.replace(INDEX_SCRIPT_TAG, game_config_script() + INDEX_SCRIPT_TAG)
         self.send_response(200)
         self.send_header("Content-Type", MIME.get(ext, "application/octet-stream"))
         self.send_header("Content-Length", str(len(body)))
@@ -512,7 +567,9 @@ class Handler(BaseHTTPRequestHandler):
         params = {k: v[0] for k, v in urllib.parse.parse_qs(parsed.query).items()}
         path = parsed.path
         try:
-            if path == "/api/stats":
+            if path == "/api/meta":
+                self.send_json(get_meta())
+            elif path == "/api/stats":
                 self.send_json(get_filters()["stats"])
             elif path == "/api/filters":
                 self.send_json(get_filters())
@@ -564,15 +621,55 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_json({"error": str(e)}, 500)
 
+    def do_POST(self):
+        path = urllib.parse.urlparse(self.path).path
+        origin = self.headers.get("Origin")
+        if origin and urllib.parse.urlparse(origin).netloc != self.headers.get("Host"):
+            self.send_error(403)                 # only the explorer's own page may reload
+        elif path == "/api/reload" and SAVE_DATASET:
+            self.send_json(SAVE_DATASET.start_reload(build_db, refresh_caches))
+        else:
+            self.send_error(404)
+
+
+def get_meta():
+    """Dataset description for a save-backed game's banner; FM27's frontend does not call it."""
+    if SAVE_DATASET and SAVE_DATASET.db_stale(DB):
+        SAVE_DATASET.start_rebuild(build_db, refresh_caches)   # CSV rewritten by the CLI
+    meta = {"game": GAME, "label": GAMES[GAME]["label"], "save_backed": bool(SAVE_DATASET),
+            "players": get_filters()["stats"]["players"], "panels": PANELS}
+    if SAVE_DATASET:
+        meta.update(SAVE_DATASET.status())
+    return meta
+
+
+def build_db(csv_path):
+    """Build the current game's player database from csv_path (atomic swap)."""
+    import import_db
+    import_db.build(DB, csv_path, force=True)
+
+
+def refresh_caches():
+    """Rebuild data derived from the player DB after it was replaced. The club index is
+    rebuilt before the filter cache is dropped, so a request in between cannot cache
+    filters computed from the old index."""
+    global _filter_cache
+    _build_club_index()
+    with _filter_lock:
+        _filter_cache = None
+
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8770)
     ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--game", choices=list(GAMES), default="fm27",
+                    help="dataset to serve (default fm27; fm24 = FM24 save files, see fm24/GUIDE.md)")
     args = ap.parse_args()
+    configure(args.game)
     ensure_db()
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
-    print(f"FM27 Profiles Explorer: http://{args.host}:{args.port}")
+    print(f"{GAMES[GAME]['label']} Profiles Explorer: http://{args.host}:{args.port}")
     print("Press Ctrl+C to stop.")
     try:
         srv.serve_forever()

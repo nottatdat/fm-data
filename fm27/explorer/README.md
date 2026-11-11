@@ -37,6 +37,20 @@ FM27_DB="/path/to/Football Manager 27/shared/data/database/db/2700/2700_fm" \
   python3 server.py
 ```
 
+### FM24 save files (`--game fm24`)
+
+```bash
+python3 fm24/save/parse_save.py                      # from the repo root, after Cmd+S in FM24
+cd fm27/explorer && python3 server.py --game fm24    # or: ./run.sh --game fm24
+```
+
+Serves an FM24 career read from its save file (macOS; see [`fm24/GUIDE.md`](../../fm24/GUIDE.md))
+from its own `data/fm24.db`. FM27 data is never read or changed in this mode, and the
+default (`--game fm27`) behaves exactly as without the option. In FM24 mode there is no
+career history, Sofascore form, faces or logos; a banner shows which save the data came
+from, reminds you to press ⌘S while FM is running, and offers **Load it** when a newer save
+appears.
+
 ## Profile view
 
 Clicking a player opens a full-screen, FM-style dashboard:
@@ -165,6 +179,8 @@ logos © their authors via FMG.
 | `GET /api/club-logo/<id>` | club logo by club ID |
 | `GET /api/comp-logo/<id>` | competition logo by competition ID |
 | `GET /api/nation-logo/<id>` | nation logo by nation ID |
+| `GET /api/meta` | dataset label, panels, and (FM24) save provenance, FM running, newer save, reload state |
+| `POST /api/reload` | FM24: re-extract the newer save and rebuild `data/fm24.db` in the background |
 
 `sort` ∈ `ca, pa, age, name, value, wage, height, reputation, id`.
 
