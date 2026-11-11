@@ -69,3 +69,6 @@ The reverse-engineering notes and tool survey are in
 
 Raw dumps (`fm27/work/*.json`), extracted CSVs, explorer databases and
 face/logo packs all stay local and are excluded via `.gitignore`.
+
+Bundled FMSuperScout binaries are MIT-licensed third-party software; see
+[`THIRD_PARTY.md`](THIRD_PARTY.md).
