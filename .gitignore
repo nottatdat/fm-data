@@ -28,3 +28,6 @@ matches/
 
 # Claude Code personal settings
 .claude/settings.local.json
+
+# Extracted data is never committed (regenerate with the guides)
+*.csv

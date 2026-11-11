@@ -1,5 +1,7 @@
 # FM27 Full Database — CSV exports (516,038 players)
 
+> Schema documentation only: the CSV files themselves are generated locally and not committed.
+
 Source: **Football Manager 27** (`27.0.0+2493426`, Steam app `4530370`), new career with the
 full custom database (England: 6 men's + 2 women's leagues, **both genders**), read live from
 game memory with **FMSuperScout Scanner v1.7.3** (read-only; offsets pinned to `game_plugin.dll`

@@ -1,5 +1,7 @@
 # FM26 Player Data — CSV exports
 
+> Schema documentation only: the CSV files themselves are generated locally and not committed.
+
 Source: a saved Argentine national-team career loaded in Football Manager **26.3.2**,
 read from live game memory with **FMSuperScout v0.1.46** (BepInEx).
 The human manager profile was **removed** from the exported data.

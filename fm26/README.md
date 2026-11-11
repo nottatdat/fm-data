@@ -4,6 +4,9 @@ Source: Football Manager **26.3.2** (Steam app `3551340`), read from a loaded
 career with FMSuperScout (BepInEx plugin). The human manager profile was removed
 from the exports.
 
+> The CSVs listed here are **generated locally and not committed** (`*.csv` is
+> gitignored). The figures describe what the guide produces.
+
 | Path | Contents |
 |---|---|
 | `csv/` | **106,770 players**, **53,536 staff** — CA/PA, 52 attributes, hidden personality, contracts, values, clubs (`fm26_players.csv`, `fm26_staff.csv`, `fm26_people.csv`) |

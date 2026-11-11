@@ -5,6 +5,9 @@ loaded game with the external **FMSuperScout Scanner v1.7.3**, plus the shipped
 `2700` database's player-history files. Human manager profiles were removed from
 the exports.
 
+> The CSVs listed here are **generated locally and not committed** (`*.csv` is
+> gitignored). The figures describe what the guide produces.
+
 ## Datasets
 
 | Path | Players | Staff | Contents |

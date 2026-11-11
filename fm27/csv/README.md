@@ -1,5 +1,7 @@
 # FM27 Imported-Career Exports (106,770 players)
 
+> Schema documentation only: the CSV files themselves are generated locally and not committed.
+
 Source: **Football Manager 27** (`27.0.0+2493426`, Steam app `4530370`) running the
 career imported from FM26 — the same Argentine national-team save. Read live from game
 memory with **FMSuperScout Scanner v1.7.3**.
